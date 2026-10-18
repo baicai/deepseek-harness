@@ -110,6 +110,8 @@ export function SidebarRoot({
     return () => { window.clearTimeout(timer) }
   }, [collapsed])
   const windowsTitlebar = document.documentElement.hasAttribute('data-windows-titlebar')
+  // Desktop-only downstream brand: the Web client keeps its upstream identity.
+  const cnyuDesktop = (globalThis as typeof globalThis & { dshDesktop?: { protocolVersion?: number } }).dshDesktop?.protocolVersion === 1
   const wide = windowsTitlebar ? !collapsed : !collapsed || !settled
   // The Windows caption menus occupy the strip to the right of these controls
   // (that is what --dsh-windows-menu-start reserves), so a right-side bubble
@@ -186,7 +188,7 @@ export function SidebarRoot({
       >
         {!wide && !windowsTitlebar && (
           <span className={css.railMark} aria-hidden="true">
-            {renderSlot('sidebar.brand.mark', { size: 24 }, { fallback: <FishLogo size={24} /> })}
+            {cnyuDesktop ? <img src="/cnyu-desktop-mark.svg" alt="" width={24} height={24} /> : renderSlot('sidebar.brand.mark', { size: 24 }, { fallback: <FishLogo size={24} /> })}
           </span>
         )}
         {/* Rail icons render at 18 (figma rail spec); expanded keeps the glyph-native sizes. */}
@@ -222,19 +224,21 @@ export function SidebarRoot({
           const identity = (
             <span className={css.brandIdentity} aria-hidden="true">
               <span className={css.brandMark}>
-                {renderSlot('sidebar.brand.mark', { size: 24 }, { fallback: <FishLogo size={24} /> })}
+                {cnyuDesktop ? <img src="/cnyu-desktop-mark.svg" alt="" width={24} height={24} /> : renderSlot('sidebar.brand.mark', { size: 24 }, { fallback: <FishLogo size={24} /> })}
               </span>
               <span className={css.brandName}>
-                {renderSlot('sidebar.brand.name', {}, {
-                  fallback: buildVersion === undefined
-                    ? <span className={css.fallbackBrandName}>{t('brand.localBuild')}</span>
-                    : (
-                      <span className={css.localBuildBrand}>
-                        <span className={css.localBuildTitle}>{t('brand.localBuild')}</span>
-                        <span className={css.buildVersion}>{buildVersion}</span>
-                      </span>
-                    ),
-                })}
+                {cnyuDesktop
+                  ? <span className={css.fallbackBrandName}>CNYU</span>
+                  : renderSlot('sidebar.brand.name', {}, {
+                    fallback: buildVersion === undefined
+                      ? <span className={css.fallbackBrandName}>{t('brand.localBuild')}</span>
+                      : (
+                        <span className={css.localBuildBrand}>
+                          <span className={css.localBuildTitle}>{t('brand.localBuild')}</span>
+                          <span className={css.buildVersion}>{buildVersion}</span>
+                        </span>
+                      ),
+                  })}
               </span>
             </span>
           )
