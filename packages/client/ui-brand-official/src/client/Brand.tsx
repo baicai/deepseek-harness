@@ -7,7 +7,8 @@ import type { SidebarBrandMarkOwnerProps } from '@deepseek-ai/dsh-client-ui-side
  * @returns the official whale mark.
  */
 export function OfficialBrandMark({ size }: SidebarBrandMarkOwnerProps) {
-  return <FishLogo size={size} />
+  const branded = (globalThis as typeof globalThis & { dshDesktop?: { protocolVersion?: number } }).dshDesktop?.protocolVersion === 1
+  return branded ? <img src="/imaohao-brand.svg" width={size} height={size} alt="" /> : <FishLogo size={size} />
 }
 
 /**
@@ -15,5 +16,6 @@ export function OfficialBrandMark({ size }: SidebarBrandMarkOwnerProps) {
  * @returns the official name wordmark.
  */
 export function OfficialBrandName() {
-  return <BrandWordmark includeMark={false} />
+  const branded = (globalThis as typeof globalThis & { dshDesktop?: { protocolVersion?: number } }).dshDesktop?.protocolVersion === 1
+  return branded ? <strong style={{ fontSize: 18, letterSpacing: '0.04em' }}>贸号</strong> : <BrandWordmark includeMark={false} />
 }
