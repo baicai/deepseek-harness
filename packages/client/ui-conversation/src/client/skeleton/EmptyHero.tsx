@@ -130,6 +130,8 @@ function HeroFish({ hovering }: { hovering: boolean }) {
  * @returns the centered hero element tree.
  */
 export function HeroShell({ t, renderSlot, children }: HeroShellProps) {
+  // The standalone iMaoHao-dsh desktop owns this hero; do not show the upstream whale.
+  const branded = (globalThis as typeof globalThis & { dshDesktop?: { protocolVersion?: number } }).dshDesktop?.protocolVersion === 1
   const [hovering, setHovering] = useState(false)
   return (
     <div className={css.root}>
@@ -145,14 +147,16 @@ export function HeroShell({ t, renderSlot, children }: HeroShellProps) {
             }}
             onMouseLeave={() => { setHovering(false) }}
           >
-            {renderSlot('conversation.hero.brand.mark', { size: 34, className: css.fish }, {
-              fallback: <HeroFish hovering={hovering} />,
-            })}
+            {branded
+              ? <img src="/imaohao-brand.svg" width={34} height={34} alt="" aria-hidden="true" />
+              : renderSlot('conversation.hero.brand.mark', { size: 34, className: css.fish }, {
+                fallback: <HeroFish hovering={hovering} />,
+              })}
           </span>
           <span className={css.titleGroup}>
             {/* Own element: keeps the headline text addressable apart from the badge. */}
-            <span>{t('hero.headline')}</span>
-            <span className={css.previewBadge}>{t('hero.preview')}</span>
+            <span>{branded ? 'AI用贸号，省心又高效！' : t('hero.headline')}</span>
+            {!branded && <span className={css.previewBadge}>{t('hero.preview')}</span>}
           </span>
         </div>
         <div className={css.body}>
