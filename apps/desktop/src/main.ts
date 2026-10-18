@@ -447,8 +447,8 @@ async function main(): Promise<void> {
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
-      hostInspectPort, { ...hostEnvironment, ...app.isPackaged && app.name === '贸号'
-        ? { DSH_HOME: process.env.DSH_HOME, IMAOHAO_BRANDING_TEST: '1' } : {}, DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
+      hostInspectPort, { ...hostEnvironment, ...(app.isPackaged && app.name === '贸号'
+        ? { DSH_HOME: process.env.DSH_HOME, IMAOHAO_BRANDING_TEST: '1' } : {}), DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
       primaryRuntime,
       resources, (next) => { platformView.setSession(next) })
     return {
@@ -939,7 +939,7 @@ async function main(): Promise<void> {
     applicationVersion: app.getVersion(),
     // The release has no separate build number; omit Electron's bundle version.
     version: '',
-    copyright: '',
+    copyright: app.name === '贸号' ? '© 深圳贸号科技有限公司' : '',
     iconPath: applicationIconPath,
   })
   // A custom application menu replaces Electron's default menu, so macOS needs
@@ -961,6 +961,14 @@ async function main(): Promise<void> {
       ? { label: currentDesktopLocale().messages.aboutMenu,
         click: () => { void showAbout().catch((error: unknown) => { console.error(error) }) } }
       : { label: currentDesktopLocale().messages.aboutMenu, role: 'about' },
+    ...(app.name === '贸号' ? [
+      { label: currentDesktopLocale().messages.officialWebsiteMenu,
+        click: () => { void shell.openExternal('https://www.imaohao.com/').catch(console.error) } },
+      { label: currentDesktopLocale().messages.aboutWebsiteMenu,
+        click: () => { void shell.openExternal('https://www.imaohao.com/aboutus.html').catch(console.error) } },
+      { label: currentDesktopLocale().messages.supportWebsiteMenu,
+        click: () => { void shell.openExternal('https://www.imaohao.com/').catch(console.error) } },
+    ] as MenuItemConstructorOptions[] : []),
     { type: 'separator' },
     { label: currentDesktopLocale().messages.checkUpdatesMenu, click: () => { void openUpdatePrompt(true) } },
     ...process.platform === 'darwin' || process.platform === 'win32'
