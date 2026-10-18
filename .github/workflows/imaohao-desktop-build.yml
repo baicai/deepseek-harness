@@ -1,16 +1,8 @@
-name: iMaoHao-dsh Desktop Validation Build
+name: iMaoHao-dsh Windows Build
 
 on:
   push:
     branches: [imaohao-branding-test]
-    paths:
-      - 'apps/desktop/**'
-      - 'apps/web/**'
-      - 'packages/bundle/**'
-      - 'packages/client/**'
-      - '.github/workflows/imaohao-desktop-build.yml'
-  pull_request:
-    branches: [master]
     paths:
       - 'apps/desktop/**'
       - 'apps/web/**'
@@ -86,55 +78,6 @@ jobs:
         uses: actions/upload-artifact@v7.0.1
         with:
           name: iMaoHao-dsh-windows-logs-${{ github.sha }}
-          include-hidden-files: true
-          path: apps/desktop/.desktop-build/packaging-runs/
-          if-no-files-found: warn
-          retention-days: 7
-
-  macos-arm64:
-    name: macOS Apple Silicon unsigned DMG
-    runs-on: macos-14
-    timeout-minutes: 180
-    steps:
-      - uses: actions/checkout@v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: pnpm/action-setup@v5.0.0
-
-      - uses: actions/setup-node@v7.0.0
-        with:
-          node-version: '24'
-
-      - name: Show runner architecture
-        run: |
-          uname -a
-          node -p "process.platform + '-' + process.arch"
-
-      - name: Install locked dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Render iMaoHao-dsh actual-brand desktop icons
-        run: |
-          pnpm --filter @deepseek-ai/dsh-desktop exec node scripts/render-imaohao-assets.mjs
-          pnpm --filter @deepseek-ai/dsh-desktop run render:tray-icon
-
-      - name: Build unsigned macOS installer
-        run: pnpm run package:desktop:mac:arm64:unsigned
-
-      - name: Upload macOS installer
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: iMaoHao-dsh-macos-arm64-${{ github.sha }}
-          path: apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/*
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload macOS packaging logs
-        if: always()
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: iMaoHao-dsh-macos-logs-${{ github.sha }}
           include-hidden-files: true
           path: apps/desktop/.desktop-build/packaging-runs/
           if-no-files-found: warn
