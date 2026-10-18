@@ -168,7 +168,7 @@ export function apply(ctx: Context, config: Config): void {
   const profiles = (): ReadonlyMap<string, ResolvedPiAiProviderProfile> => {
     const raw = config.providers.get()
     if (raw === lastRaw && memoized !== undefined) return memoized
-    const configured = structuredClone(raw) as import('./config.ts').Options['providers']
+    const configured = (structuredClone(raw) ?? {}) as NonNullable<import('./config.ts').Options['providers']>
     // The bundled desktop test keeps its two fake model routes visible even if
     // settings persisted an empty pi-ai providers object on an earlier login.
     // Missing credentials cause a clear error; the placeholders never fall back
