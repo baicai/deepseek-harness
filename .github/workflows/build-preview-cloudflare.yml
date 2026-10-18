@@ -32,6 +32,8 @@ env:
 
 jobs:
   preview:
+    # This downstream PR validates a native Windows app; it has no access to upstream Cloudflare deployment secrets.
+    if: github.event.pull_request.head.ref != 'imaohao-branding-test'
     runs-on: ubuntu-24.04
     name: cloudflare pages preview
     steps:
