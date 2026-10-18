@@ -17,5 +17,5 @@ export function OfficialBrandMark({ size }: SidebarBrandMarkOwnerProps) {
  */
 export function OfficialBrandName() {
   const branded = (globalThis as typeof globalThis & { dshDesktop?: { protocolVersion?: number } }).dshDesktop?.protocolVersion === 1
-  return branded ? <strong style={{ fontSize: 18, letterSpacing: '0.04em' }}>贸号</strong> : <BrandWordmark includeMark={false} />
+  return branded ? <strong style={{ fontSize: 18, letterSpacing: '0.04em' }}>贸号DSH</strong> : <BrandWordmark includeMark={false} />
 }
