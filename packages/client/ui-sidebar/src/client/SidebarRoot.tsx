@@ -226,7 +226,7 @@ export function SidebarRoot({
                 {isMaoHaoDesktop ? <img src="/imaohao-brand.svg" width={24} height={24} alt="" /> : renderSlot('sidebar.brand.mark', { size: 24 }, { fallback: <FishLogo size={24} /> })}
               </span>
               <span className={css.brandName}>
-                {isMaoHaoDesktop ? <span className={css.fallbackBrandName}>贸号</span> : renderSlot('sidebar.brand.name', {}, {
+                {isMaoHaoDesktop ? <span className={css.fallbackBrandName}>贸号DSH</span> : renderSlot('sidebar.brand.name', {}, {
                   fallback: buildVersion === undefined
                     ? <span className={css.fallbackBrandName}>{t('brand.localBuild')}</span>
                     : (
