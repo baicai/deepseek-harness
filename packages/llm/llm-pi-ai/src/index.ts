@@ -168,7 +168,24 @@ export function apply(ctx: Context, config: Config): void {
   const profiles = (): ReadonlyMap<string, ResolvedPiAiProviderProfile> => {
     const raw = config.providers.get()
     if (raw === lastRaw && memoized !== undefined) return memoized
-    const next = resolveProfiles(structuredClone(raw) as import('./config.ts').Options['providers'], 'deferred')
+    const configured = structuredClone(raw) as import('./config.ts').Options['providers']
+    // The bundled desktop test keeps its two fake model routes visible even if
+    // settings persisted an empty pi-ai providers object on an earlier login.
+    // Missing credentials cause a clear error; the placeholders never fall back
+    // to an authenticated DeepSeek model or call a remote model endpoint.
+    if (process.env.IMAOHAO_BRANDING_TEST === '1') {
+      configured['imaohao-demo'] = {
+        displayName: 'iMaoHao-dsh（模拟模型）',
+        api: 'openai-completions',
+        baseURL: 'http://127.0.0.1:39401/v1',
+        apiKeyEnv: 'IMAOHAO_MODEL_API_KEY',
+        models: [
+          { id: 'default', name: '默认', contextWindow: 32768, maxTokens: 4096 },
+          { id: 'iMaoHao-V6.1-Astra', name: 'iMaoHao-V6.1-Astra', contextWindow: 32768, maxTokens: 4096 },
+        ],
+      }
+    }
+    const next = resolveProfiles(configured, 'deferred')
     lastRaw = raw
     memoized = next
     return next
