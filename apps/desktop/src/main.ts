@@ -954,6 +954,30 @@ async function main(): Promise<void> {
       { role: 'hideOthers', label: currentDesktopLocale().messages.hideOtherApplications },
       { role: 'unhide', label: currentDesktopLocale().messages.showAllApplications }, { type: 'separator' }]
     : []
+  let supportQrWindow: BrowserWindow | undefined
+  const showSupportQr = (): void => {
+    if (supportQrWindow !== undefined && !supportQrWindow.isDestroyed()) {
+      supportQrWindow.show()
+      supportQrWindow.focus()
+      return
+    }
+    const qrWindow = new BrowserWindow({
+      title: '贸号DSH · 联系客服', width: 380, height: 490, resizable: false,
+      minimizable: true, maximizable: false, autoHideMenuBar: true,
+      webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+    })
+    supportQrWindow = qrWindow
+    qrWindow.on('closed', () => { if (supportQrWindow === qrWindow) supportQrWindow = undefined })
+    qrWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+    qrWindow.webContents.on('will-navigate', (event, url) => {
+      event.preventDefault()
+      if (url === 'https://www.imaohao.com/' || url === 'https://www.imaohao.com') {
+        void shell.openExternal('https://www.imaohao.com/').catch(console.error)
+      }
+    })
+    void qrWindow.loadFile(join(app.getAppPath(), 'renderer', 'imaohao-support.html'))
+      .catch((error: unknown) => { console.error('support QR failed', error) })
+  }
   const applicationItems = (): MenuItemConstructorOptions[] => [
     // Windows has no system About panel; Electron's fallback is a plain
     // message box, so the shell shows its own dimmed dialog instead.
@@ -967,7 +991,7 @@ async function main(): Promise<void> {
       { label: currentDesktopLocale().messages.aboutWebsiteMenu,
         click: () => { void shell.openExternal('https://www.imaohao.com/aboutus.html').catch(console.error) } },
       { label: currentDesktopLocale().messages.supportWebsiteMenu,
-        click: () => { void shell.openExternal('https://www.imaohao.com/').catch(console.error) } },
+        click: () => { showSupportQr() } },
     ] as MenuItemConstructorOptions[] : []),
     { type: 'separator' },
     { label: currentDesktopLocale().messages.checkUpdatesMenu, click: () => { void openUpdatePrompt(true) } },
