@@ -8,7 +8,7 @@ on:
       - 'apps/web/**'
       - 'packages/bundle/**'
       - 'packages/client/**'
-      - '.github/workflows/imaohao-build.yml'
+      - '.github/workflows/imaohao-desktop-build.yml'
   workflow_dispatch:
 
 permissions:
@@ -22,7 +22,6 @@ env:
   CI: 'true'
   DSH_TELEMETRY_DISABLED: '1'
   IMAOHAO_BRANDING_TEST: '1'
-  CNYU_BRANDING_TEST: '1'
 
 jobs:
   windows-x64:
@@ -52,7 +51,7 @@ jobs:
         shell: pwsh
         run: |
           @"
-          DSH_DESKTOP_APP_ID=com.cnyu.desktop
+          DSH_DESKTOP_APP_ID=com.imaohao.desktop
           DSH_DESKTOP_AUTO_UPDATE_ENV=test
           DOWNLOAD_TEST_ORIGIN=https://example.com
           DOWNLOAD_TEST_RELEASE_ID=0123456789abcdef0123456789abcdef
