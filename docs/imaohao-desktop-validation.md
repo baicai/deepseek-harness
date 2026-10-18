@@ -1,6 +1,6 @@
 # iMaoHao-dsh Desktop — DSH Downstream Validation
 
-> Status: engineering prototype. Not an official product release. The uploaded logo/QR source files have been processed locally but are NOT yet committed as GitHub binary resources, so the in-repository temporary monogram is **NOT** the supplied logo and must be replaced with the original cropped mark from the local asset overlay before visual acceptance.
+ > Status: engineering prototype, not a public release. The supplied multicolor Logo mark is now embedded in the Desktop icon and sidebar source SVG; the supplied service QR is embedded in the Desktop. Chinese wordmark in the welcome page remains a typography recreation, not an exact vector master. Build and installed-app acceptance are still pending.
 
 ## Scope
 
@@ -86,14 +86,14 @@ Workflow: `.github/workflows/imaohao-desktop-build.yml` on `imaohao-branding-tes
 
 Windows x64: unsigned .exe; macOS Apple Silicon: unsigned .dmg. Untrusted developer packages may show system warnings; signing, notarization, update feed and DMG/NSIS metadata production readiness are out of scope.
 
-CI first generates **temporary** raster/ICO assets from `apps/desktop/resources/imaohao-prototype.svg`. For production, replace that one asset using the supplied master artwork, regenerate PNG+ICO, inspect at 16/20/24/32/48/64/128/256/512/1024 px and validate the OS-specific shape/safe margins.
+CI regenerates desktop PNG and Windows ICO files using the **user-supplied cropped brand mark embedded** in `apps/desktop/resources/imaohao-prototype.svg`. For production-quality vector output, replace that embedded raster with the supplied vector master when available, regenerate PNG+ICO, inspect at 16/20/24/32/48/64/128/256/512/1024 px and validate the OS-specific shape/safe margins.
 
 Acceptance checklist:
-- [ ] Windows installed app name, Start menu, running taskbar and tray show 贸号 (not DSH).
-- [ ] macOS Finder .app, Dock, Menu, About, welcome show 贸号.
-- [ ] Embedded workspace sidebar and browser/page icon show 贸号 artwork.
+- [ ] Windows installed app name, Start menu, running taskbar and tray show 贸号DSH (not DeepSeek Harness).
+- [ ] macOS Finder .app, Dock, Menu, About, welcome show 贸号DSH.
+- [ ] Embedded workspace sidebar and browser/page icon show the supplied 贸号 mark.
 - [ ] Official website/About open the required URLs.
-- [ ] Contact QR uses the **exact supplied attachment**; assets have been generated locally but the GitHub branch still needs those source image bytes. Mark this NOT DONE until inspected after installation.
+- [ ] Contact QR uses the **exact supplied attachment**; QR source bytes are embedded in `renderer/assets/imaohao-qr.svg`; manual QR scanning in the packaged application is pending.
 - [ ] Both mock models appear; a clean install selects “默认”.
 - [ ] Sending via either mock route never silently uses a real provider.
 - [ ] Model and user account auth can be configured independently.
