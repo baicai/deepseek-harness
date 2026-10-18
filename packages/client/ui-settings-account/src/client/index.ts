@@ -135,7 +135,8 @@ export function apply(ctx: Context): void {
       frame.accept()
       if (frame.value.status === 'credential-stored') notices.begin()
       else notices.end()
-      if (initialize) void (async () => {
+      // The branded demo explicitly owns its default selection; DeepSeek login must not overwrite it.
+      if (initialize && process.env.IMAOHAO_BRANDING_TEST !== '1') void (async () => {
         try {
           const initialized = await ctx.remote.session.initializeDefaultModel()
           if (!initialized.ok) console.error('[deepseek-account] default model initialization failed', { reason: 'refused' })
