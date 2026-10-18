@@ -1,4 +1,4 @@
-name: 贸号 Desktop Validation Build
+name: iMaoHao-dsh Desktop Validation Build
 
 on:
   push:
@@ -22,6 +22,7 @@ env:
   CI: 'true'
   DSH_TELEMETRY_DISABLED: '1'
   IMAOHAO_BRANDING_TEST: '1'
+  DSH_CLIENT_IMAOHAO_BRANDING: '1'
 
 jobs:
   windows-x64:
@@ -51,7 +52,7 @@ jobs:
         shell: pwsh
         run: |
           @"
-          DSH_DESKTOP_APP_ID=com.imaohao.desktop
+          DSH_DESKTOP_APP_ID=com.imaohao.dsh
           DSH_DESKTOP_AUTO_UPDATE_ENV=test
           DOWNLOAD_TEST_ORIGIN=https://example.com
           DOWNLOAD_TEST_RELEASE_ID=0123456789abcdef0123456789abcdef
@@ -67,7 +68,7 @@ jobs:
       - name: Upload Windows installer
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: imaohao-windows-x64-${{ github.sha }}
+          name: iMaoHao-dsh-windows-x64-${{ github.sha }}
           path: apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts/*
           if-no-files-found: error
           retention-days: 14
@@ -76,7 +77,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: imaohao-windows-logs-${{ github.sha }}
+          name: iMaoHao-dsh-windows-logs-${{ github.sha }}
           include-hidden-files: true
           path: apps/desktop/.desktop-build/packaging-runs/
           if-no-files-found: warn
@@ -116,7 +117,7 @@ jobs:
       - name: Upload macOS installer
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: imaohao-macos-arm64-${{ github.sha }}
+          name: iMaoHao-dsh-macos-arm64-${{ github.sha }}
           path: apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/*
           if-no-files-found: error
           retention-days: 14
@@ -125,7 +126,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: imaohao-macos-logs-${{ github.sha }}
+          name: iMaoHao-dsh-macos-logs-${{ github.sha }}
           include-hidden-files: true
           path: apps/desktop/.desktop-build/packaging-runs/
           if-no-files-found: warn
