@@ -882,3 +882,10 @@ jobs:
           path: apps/desktop/.desktop-build/packaging-runs/
           if-no-files-found: warn
           retention-days: 7
+
+  imaohao-windows-installer:
+    name: iMaoHao-dsh Windows x64 packaging
+    if: github.event_name == 'pull_request' && github.head_ref == 'imaohao-branding-test'
+    uses: ./.github/workflows/imaohao-desktop-build.yml
+    permissions:
+      contents: read
