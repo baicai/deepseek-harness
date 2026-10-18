@@ -155,10 +155,11 @@ export function HeroShell({ t, renderSlot, children }: HeroShellProps) {
           </span>
           <span className={css.titleGroup}>
             {/* Own element: keeps the headline text addressable apart from the badge. */}
-            <span>{branded ? 'AI用贸号，省心又高效！' : t('hero.headline')}</span>
+            <span>{branded ? '贸号DSH' : t('hero.headline')}</span>
             {!branded && <span className={css.previewBadge}>{t('hero.preview')}</span>}
           </span>
         </div>
+        {branded && <p className={css.brandSlogan}>AI用贸号，省心又高效！</p>}
         <div className={css.body}>
           {/* The composer remains mounted outside this component. */}
         </div>
