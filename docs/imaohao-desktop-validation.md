@@ -1,17 +1,18 @@
-# 贸号 Desktop — DSH Downstream Validation
+# iMaoHao-dsh Desktop — DSH Downstream Validation
 
-> Status: engineering prototype. Not an official product release. The uploaded logo/QR source files have not been materialized in this session, so the mark below is **temporary** and cannot be accepted as the supplied identity.
+> Status: engineering prototype. Not an official product release. The uploaded logo/QR source files have been processed locally but are NOT yet committed as GitHub binary resources, so the in-repository temporary monogram is **NOT** the supplied logo and must be replaced with the original cropped mark from the local asset overlay before visual acceptance.
 
 ## Scope
 
 - Branch: `imaohao-branding-test` (kept separate from `master` and `cnyu-branding-test`).
 - Upstream core packages, engine and existing DeepSeek account/provider functions remain.
-- Desktop brand/installer display: **贸号**; Windows/macOS application ID `com.imaohao.desktop`.
+- Desktop brand/installer display: **贸号DSH**; Windows/macOS application ID `com.imaohao.dsh`.
+- English product ID / artifact prefix: `iMaoHao-dsh`. Chinese name: 贸号DSH. Slogan: **AI用贸号，省心又高效！**
 - Official website: https://www.imaohao.com/
 - About us: https://www.imaohao.com/aboutus.html
 - Customer service: official website contact/QR pending the attached file; the current app menu opens the website, **not** an embedded QR.
 - Embedded desktop sidebar and welcome: provisional text/monogram; upstream mascot/wordmark should not be shown on the branded desktop startup. The source of truth for production artwork must be the provided vector or lossless master.
-- `dsh://` and internal package names remain unchanged intentionally to preserve the current host runtime and DeepSeek auth compatibility. They do not mean official 贸号 OAuth exists.
+- `imaohao-dsh://` is the external branded protocol (the internal `dsh-app://` and package names remain untouched) to preserve the current host runtime and DeepSeek auth compatibility. They do not mean official 贸号 OAuth exists.
 - The branded app uses a separate Electron userData and `DSH_HOME` to avoid overwriting upstream DSH credentials, sessions or defaults.
 
 ## Mock models — not inference services
@@ -92,7 +93,7 @@ Acceptance checklist:
 - [ ] macOS Finder .app, Dock, Menu, About, welcome show 贸号.
 - [ ] Embedded workspace sidebar and browser/page icon show 贸号 artwork.
 - [ ] Official website/About open the required URLs.
-- [ ] Contact QR uses the **exact supplied attachment**; not yet completed.
+- [ ] Contact QR uses the **exact supplied attachment**; assets have been generated locally but the GitHub branch still needs those source image bytes. Mark this NOT DONE until inspected after installation.
 - [ ] Both mock models appear; a clean install selects “默认”.
 - [ ] Sending via either mock route never silently uses a real provider.
 - [ ] Model and user account auth can be configured independently.
