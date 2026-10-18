@@ -264,7 +264,7 @@ export const zh = {
   welcomeSignIn: '使用 DeepSeek 账号登录',
   welcomeApiKey: '添加 API Key',
   welcomeKeyTitle: '添加一个 API Key 开始使用',
-  welcomeKeyDescription: '此处配置 DeepSeek API Key；其他模型请跳过后到设置 → 模型添加。'
+  welcomeKeyDescription: '此处配置 DeepSeek API Key；其他模型请跳过后到设置 → 模型添加。',
   welcomeKeyPlaceholder: '输入 API 密钥',
   welcomeKeySave: '保存并继续',
   welcomeKeyLater: '稍后配置',
