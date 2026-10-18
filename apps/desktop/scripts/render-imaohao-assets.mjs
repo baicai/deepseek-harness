@@ -1,4 +1,4 @@
-/** Export provisional 贸号 brand artwork for desktop icon assets. Replace source SVG with approved uploaded artwork. */
+/** Render desktop icon assets from the user-supplied cropped 贸号 logo embedded in the replaceable SVG master. */
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
