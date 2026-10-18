@@ -1,0 +1,133 @@
+name: 贸号 Desktop Validation Build
+
+on:
+  push:
+    branches: [imaohao-branding-test]
+    paths:
+      - 'apps/desktop/**'
+      - 'apps/web/**'
+      - 'packages/bundle/**'
+      - 'packages/client/**'
+      - '.github/workflows/imaohao-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: imaohao-desktop-branding-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: 'true'
+  DSH_TELEMETRY_DISABLED: '1'
+  IMAOHAO_BRANDING_TEST: '1'
+  CNYU_BRANDING_TEST: '1'
+
+jobs:
+  windows-x64:
+    name: Windows x64 unsigned EXE
+    runs-on: windows-2025
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v5.0.0
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Render replaceable 贸号 prototype desktop icons
+        run: |
+          pnpm --filter @deepseek-ai/dsh-desktop exec node scripts/render-imaohao-assets.mjs
+          pnpm --filter @deepseek-ai/dsh-desktop run render:tray-icon
+
+      - name: Prepare local unsigned Windows packaging config
+        shell: pwsh
+        run: |
+          @"
+          DSH_DESKTOP_APP_ID=com.cnyu.desktop
+          DSH_DESKTOP_AUTO_UPDATE_ENV=test
+          DOWNLOAD_TEST_ORIGIN=https://example.com
+          DOWNLOAD_TEST_RELEASE_ID=0123456789abcdef0123456789abcdef
+          DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN=https://example.com
+          DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN=https://example.com
+          DSH_DESKTOP_MANDATORY_UPDATE_CONFIG='{"allowedAuthOrigins":["https://example.com"]}'
+          DSH_DESKTOP_WINDOWS_SIGNATURE_CACHE_CONCURRENCY=4
+          "@ | Set-Content -Path apps/desktop/.env.windows -Encoding utf8
+
+      - name: Build unsigned Windows installer
+        run: pnpm run package:desktop:win:x64:unsigned
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: imaohao-windows-x64-${{ github.sha }}
+          path: apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Windows packaging logs
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: imaohao-windows-logs-${{ github.sha }}
+          include-hidden-files: true
+          path: apps/desktop/.desktop-build/packaging-runs/
+          if-no-files-found: warn
+          retention-days: 7
+
+  macos-arm64:
+    name: macOS Apple Silicon unsigned DMG
+    runs-on: macos-14
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v5.0.0
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Show runner architecture
+        run: |
+          uname -a
+          node -p "process.platform + '-' + process.arch"
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Render replaceable 贸号 prototype desktop icons
+        run: |
+          pnpm --filter @deepseek-ai/dsh-desktop exec node scripts/render-imaohao-assets.mjs
+          pnpm --filter @deepseek-ai/dsh-desktop run render:tray-icon
+
+      - name: Build unsigned macOS installer
+        run: pnpm run package:desktop:mac:arm64:unsigned
+
+      - name: Upload macOS installer
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: imaohao-macos-arm64-${{ github.sha }}
+          path: apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload macOS packaging logs
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: imaohao-macos-logs-${{ github.sha }}
+          include-hidden-files: true
+          path: apps/desktop/.desktop-build/packaging-runs/
+          if-no-files-found: warn
+          retention-days: 7
