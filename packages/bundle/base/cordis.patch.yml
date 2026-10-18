@@ -90,8 +90,8 @@
     - id: agent-default-model
       name: '@deepseek-ai/dsh-agent-default-model'
       config:
-        provider: deepseek-official
-        model: deepseek-flash
+        provider: !!js "process.env.IMAOHAO_BRANDING_TEST === '1' ? 'imaohao-demo' : 'deepseek-official'"
+        model: !!js "process.env.IMAOHAO_BRANDING_TEST === '1' ? 'default' : 'deepseek-flash'"
 
     - id: jobs
       name: '@deepseek-ai/dsh-jobs-local'
@@ -134,6 +134,11 @@
     # document.
     - id: llm-pi-ai
       name: '@deepseek-ai/dsh-llm-pi-ai'
+      # Test-only: the two mock routes are discoverable but cannot reach an actual model.
+      # IMAOHAO_MODEL_API_KEY is intentionally absent; requests fail with MISSING_CREDENTIAL.
+      # Connect a real gateway by editing the desktop profile's cordis.patch.yml.
+      config:
+        providers: !!js "process.env.IMAOHAO_BRANDING_TEST === '1' ? { 'imaohao-demo': { displayName: '贸号模型（模拟，未接入）', api: 'openai-completions', baseURL: 'http://127.0.0.1:39401/v1', apiKeyEnv: 'IMAOHAO_MODEL_API_KEY', models: [{ id: 'default', name: '默认', contextWindow: 32768, maxTokens: 4096 }, { id: 'iMaoHao-V6.1-Astra', name: 'iMaoHao-V6.1-Astra', contextWindow: 32768, maxTokens: 4096 }] } } : {}"
 
     - id: session-persistence-jsonl
       name: '@deepseek-ai/dsh-session-persistence-jsonl'
