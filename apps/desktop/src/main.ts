@@ -316,7 +316,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
 
 async function main(): Promise<void> {
   // Isolate 贸号 profile/session/credential files from an upstream DSH installation.
-  if (app.isPackaged && app.name === '贸号') process.env.DSH_HOME = join(app.getPath('userData'), 'harness-home')
+  if (app.isPackaged && app.name === '贸号DSH') process.env.DSH_HOME = join(app.getPath('userData'), 'harness-home')
   const desktopSettings = readDesktopSettings(app.getPath('userData'))
   void pruneCrashReports(app.getPath('logs'))
   const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
@@ -447,7 +447,7 @@ async function main(): Promise<void> {
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
-      hostInspectPort, { ...hostEnvironment, ...(app.isPackaged && app.name === '贸号'
+      hostInspectPort, { ...hostEnvironment, ...(app.isPackaged && app.name === '贸号DSH'
         ? { DSH_HOME: process.env.DSH_HOME, IMAOHAO_BRANDING_TEST: '1' } : {}), DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
       primaryRuntime,
       resources, (next) => { platformView.setSession(next) })
@@ -939,7 +939,7 @@ async function main(): Promise<void> {
     applicationVersion: app.getVersion(),
     // The release has no separate build number; omit Electron's bundle version.
     version: '',
-    copyright: app.name === '贸号' ? '© 深圳贸号科技有限公司' : '',
+    copyright: app.name === '贸号DSH' ? '© 深圳贸号科技有限公司' : '',
     iconPath: applicationIconPath,
   })
   // A custom application menu replaces Electron's default menu, so macOS needs
@@ -961,7 +961,7 @@ async function main(): Promise<void> {
       ? { label: currentDesktopLocale().messages.aboutMenu,
         click: () => { void showAbout().catch((error: unknown) => { console.error(error) }) } }
       : { label: currentDesktopLocale().messages.aboutMenu, role: 'about' },
-    ...(app.name === '贸号' ? [
+    ...(app.name === '贸号DSH' ? [
       { label: currentDesktopLocale().messages.officialWebsiteMenu,
         click: () => { void shell.openExternal('https://www.imaohao.com/').catch(console.error) } },
       { label: currentDesktopLocale().messages.aboutWebsiteMenu,
@@ -1244,7 +1244,7 @@ async function main(): Promise<void> {
   }
 
   // Keep the branded test protocol independent from an installed upstream DSH.
-  const externalProtocol = app.name === '贸号' ? 'imaohao' : 'dsh'
+  const externalProtocol = app.name === '贸号DSH' ? 'imaohao' : 'dsh'
   if (app.isPackaged || process.env.DSH_DESKTOP_DEV_APP === '1') app.setAsDefaultProtocolClient(externalProtocol)
   app.on('open-url', (event, url) => {
     event.preventDefault()
