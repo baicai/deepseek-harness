@@ -44,6 +44,14 @@ ManifestDPIAware true
   !insertmacro setInstallModePerUser
   StrCpy $hasPerMachineInstallation 0
   StrCpy $hasPerUserInstallation 1
+  ; New branded installations must never inherit the @deepseek default path.
+  ; Keep the registered install path when updating an existing 贸号DSH copy.
+  ${If} "$(^Name)" == "贸号DSH"
+    ReadRegStr $2 HKCU "${UNINSTALL_REGISTRY_KEY}" InstallLocation
+    ${If} $2 == ""
+      StrCpy $INSTDIR "$LOCALAPPDATA\\Programs\\iMaoHao-dsh"
+    ${EndIf}
+  ${EndIf}
   StrCpy $InstallerPath $INSTDIR
   StrCpy $InstallerTheme "auto"
   ${GetParameters} $0
