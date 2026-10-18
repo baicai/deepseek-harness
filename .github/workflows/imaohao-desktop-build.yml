@@ -9,6 +9,14 @@ on:
       - 'packages/bundle/**'
       - 'packages/client/**'
       - '.github/workflows/imaohao-desktop-build.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'apps/desktop/**'
+      - 'apps/web/**'
+      - 'packages/bundle/**'
+      - 'packages/client/**'
+      - '.github/workflows/imaohao-desktop-build.yml'
   workflow_dispatch:
 
 permissions:
