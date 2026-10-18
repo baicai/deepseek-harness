@@ -106,7 +106,7 @@ export function createElectronBuilderConfig(
   const packaged = resolveDesktopBuildCommit(env)
   return {
     appId,
-    protocols: [{ name: maohaoBranding ? '贸号' : 'DeepSeek Harness', schemes: ['dsh'] }],
+    protocols: [{ name: maohaoBranding ? '贸号' : 'DeepSeek Harness', schemes: [maohaoBranding ? 'imaohao' : 'dsh'] }],
     extraMetadata: {
       dshDesktopAppId: appId,
       dshDesktopUpdateChannel: update?.channel ?? 'nightly',
