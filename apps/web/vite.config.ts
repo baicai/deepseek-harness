@@ -167,7 +167,6 @@ function npmPackageOf(id: string): string | undefined {
 }
 
 export default defineConfig({
-  define: { 'process.env.IMAOHAO_BRANDING_TEST': JSON.stringify(process.env.IMAOHAO_BRANDING_TEST ?? '0') },
   // Relative asset URLs: preview.html mounts the same output under any base
   // directory, and the served index resolves identically from the site root.
   base: './',
@@ -251,6 +250,7 @@ export default defineConfig({
   },
   define: {
     ...clientBuildEnvironmentDefines(process.env),
+    'process.env.IMAOHAO_BRANDING_TEST': JSON.stringify(process.env.IMAOHAO_BRANDING_TEST ?? '0'),
     // vendored loader internal.ts: fromInternal() probes the Node major —
     // "0.0.0" takes neither branch, returning undefined (exactly the empty
     // internal slot the shell boot fills with the client module loader).
