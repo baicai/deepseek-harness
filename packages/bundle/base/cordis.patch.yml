@@ -138,7 +138,7 @@
       # IMAOHAO_MODEL_API_KEY is intentionally absent; requests fail with MISSING_CREDENTIAL.
       # Connect a real gateway by editing the desktop profile's cordis.patch.yml.
       config:
-        providers: !!js "process.env.IMAOHAO_BRANDING_TEST === '1' ? { 'imaohao-demo': { displayName: '贸号模型（模拟，未接入）', api: 'openai-completions', baseURL: 'http://127.0.0.1:39401/v1', apiKeyEnv: 'IMAOHAO_MODEL_API_KEY', models: [{ id: 'default', name: '默认', contextWindow: 32768, maxTokens: 4096 }, { id: 'iMaoHao-V6.1-Astra', name: 'iMaoHao-V6.1-Astra', contextWindow: 32768, maxTokens: 4096 }] } } : {}"
+        providers: !!js "process.env.IMAOHAO_BRANDING_TEST === '1' ? { 'imaohao-demo': { displayName: 'iMaoHao-dsh（模拟，未接入）', api: 'openai-completions', baseURL: 'http://127.0.0.1:39401/v1', apiKeyEnv: 'IMAOHAO_MODEL_API_KEY', models: [{ id: 'default', name: '默认', contextWindow: 32768, maxTokens: 4096 }, { id: 'iMaoHao-V6.1-Astra', name: 'iMaoHao-V6.1-Astra', contextWindow: 32768, maxTokens: 4096 }] } } : {}"
 
     - id: session-persistence-jsonl
       name: '@deepseek-ai/dsh-session-persistence-jsonl'
