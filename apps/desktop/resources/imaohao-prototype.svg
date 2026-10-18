@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="贸号临时标识（待替换上传原图）">
+  <defs><linearGradient id="tile" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#14385F"/><stop offset="1" stop-color="#0A1424"/></linearGradient><linearGradient id="stroke" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#29B5FF"/><stop offset="1" stop-color="#22D2BE"/></linearGradient></defs>
+  <rect x="30" y="30" width="964" height="964" rx="216" fill="url(#tile)"/>
+  <!-- Geometric MAOHAO prototype only; replace this entire SVG with the supplied brand master. -->
+  <g id="tray-glyph" fill="none" stroke="url(#stroke)" stroke-width="84" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M238 692 V336 L405 536 L570 336 V692"/>
+    <path d="M654 336 V692 M654 516 H795 M795 336 V692"/>
+  </g>
+</svg>
