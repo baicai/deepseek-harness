@@ -9,6 +9,14 @@ on:
       - 'packages/bundle/**'
       - 'packages/client/**'
       - '.github/workflows/imaohao-desktop-build.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'apps/desktop/**'
+      - 'apps/web/**'
+      - 'packages/bundle/**'
+      - 'packages/client/**'
+      - '.github/workflows/imaohao-desktop-build.yml'
   workflow_dispatch:
 
 permissions:
@@ -43,7 +51,7 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Render replaceable 贸号 prototype desktop icons
+      - name: Render iMaoHao-dsh actual-brand desktop icons
         run: |
           pnpm --filter @deepseek-ai/dsh-desktop exec node scripts/render-imaohao-assets.mjs
           pnpm --filter @deepseek-ai/dsh-desktop run render:tray-icon
@@ -106,7 +114,7 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Render replaceable 贸号 prototype desktop icons
+      - name: Render iMaoHao-dsh actual-brand desktop icons
         run: |
           pnpm --filter @deepseek-ai/dsh-desktop exec node scripts/render-imaohao-assets.mjs
           pnpm --filter @deepseek-ai/dsh-desktop run render:tray-icon
