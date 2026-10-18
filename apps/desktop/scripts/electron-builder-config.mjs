@@ -106,7 +106,7 @@ export function createElectronBuilderConfig(
   const packaged = resolveDesktopBuildCommit(env)
   return {
     appId,
-    protocols: [{ name: maohaoBranding ? '贸号' : 'DeepSeek Harness', schemes: [maohaoBranding ? 'imaohao' : 'dsh'] }],
+    protocols: [{ name: maohaoBranding ? '贸号DSH' : 'DeepSeek Harness', schemes: [maohaoBranding ? 'imaohao-dsh' : 'dsh'] }],
     extraMetadata: {
       dshDesktopAppId: appId,
       dshDesktopUpdateChannel: update?.channel ?? 'nightly',
@@ -116,7 +116,7 @@ export function createElectronBuilderConfig(
     },
     productName: maohaoBranding ? '贸号' : 'DeepSeek Harness',
     // Unsigned builds carry their own suffix so a shared file can never pass for a release artifact.
-    artifactName: `${maohaoBranding ? 'imaohao' : 'deepseek-harness'}-\${version}-\${os}-\${arch}${output.suffix}.\${ext}`,
+    artifactName: `${maohaoBranding ? 'iMaoHao-dsh' : 'deepseek-harness'}-\${version}-\${os}-\${arch}${output.suffix}.\${ext}`,
     directories: { output: output.directory },
     asar: true,
     electronDist: buildPaths.electron,
