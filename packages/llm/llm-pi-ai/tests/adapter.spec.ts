@@ -68,6 +68,10 @@ function adapterOf(
 }
 
 beforeEach(() => {
+  // All upstream cases keep the default provider roster even when the
+  // branded Windows packaging workflow exports IMAOHAO_BRANDING_TEST=1.
+  // Each explicit iMaoHao test opts back into the branded mode below.
+  vi.stubEnv('IMAOHAO_BRANDING_TEST', '0')
   // Configuration carries only the reference; these mounts resolve it from
   // the environment, which is the whole credential plane without a seam.
   vi.stubEnv('PI_TEST_KEY', 'test-key')
