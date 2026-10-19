@@ -52,6 +52,9 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify mock providers appear in Host catalog without real credentials
+        run: pnpm exec vitest run packages/llm/llm-pi-ai/tests/adapter.spec.ts
+
       - name: Render iMaoHao-dsh actual-brand desktop icons
         run: |
           pnpm --filter @deepseek-ai/dsh-desktop exec node scripts/render-imaohao-assets.mjs
