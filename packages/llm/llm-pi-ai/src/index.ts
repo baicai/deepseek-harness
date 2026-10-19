@@ -206,6 +206,12 @@ export function apply(ctx: Context, config: Config): void {
     provider: string,
     profile: ResolvedPiAiProviderProfile,
   ): Promise<string | undefined> => {
+    // Never send a live request from the hardcoded, non-existent mock route,
+    // even if a developer accidentally exports its test credential. Real
+    // iMaoHao API integration must use a separate configured provider route.
+    if (process.env.IMAOHAO_BRANDING_TEST === '1' && provider === 'imaohao-demo') {
+      throw new LlmError('iMaoHao-dsh: simulated model only; configure a real 贸号 model gateway first', 'MISSING_CREDENTIAL')
+    }
     const ref = profile.apiKeyEnv
     // Only a profile that names no credential at all defers to pi-ai's
     // provider-native discovery. Once one is named, a miss must fail loud:
