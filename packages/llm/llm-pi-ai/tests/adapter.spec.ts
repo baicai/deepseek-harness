@@ -1115,7 +1115,8 @@ it.each([
 
 it('iMaoHao branded test exposes two mock models without granting inference credentials', async () => {
   vi.stubEnv('IMAOHAO_BRANDING_TEST', '1')
-  vi.stubEnv('IMAOHAO_MODEL_API_KEY', undefined)
+  // Even accidentally setting a local demo key must not enable remote calls.
+  vi.stubEnv('IMAOHAO_MODEL_API_KEY', 'should-never-authorize-a-mock')
   const ctx = new Context()
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(LlmPiAi, { providers: {} })
