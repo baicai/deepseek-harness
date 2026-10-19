@@ -1128,7 +1128,7 @@ it('iMaoHao branded test exposes two mock models without granting inference cred
   for await (const chunk of ctx.llm.stream({ provider: 'imaohao-demo', model: 'default', messages: [] })) {
     if (chunk.type === 'finish') finished.push(chunk)
   }
-  expect(finished).toMatchObject([{ kind: 'error', failure: { code: 'MISSING_CREDENTIAL' } }])
+  expect(finished).toMatchObject([{ type: 'finish', reason: { kind: 'error', failure: { code: 'MISSING_CREDENTIAL' } } }])
 })
 
 it('never exposes mock models in upstream runtime or on another provider route', async () => {
