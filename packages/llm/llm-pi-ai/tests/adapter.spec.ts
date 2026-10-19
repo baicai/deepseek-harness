@@ -1113,6 +1113,32 @@ it.each([
   } else await expect(adapter.listModels('deepseek')).rejects.toBe(error)
 })
 
+it('iMaoHao branded test exposes two mock models without granting inference credentials', async () => {
+  vi.stubEnv('IMAOHAO_BRANDING_TEST', '1')
+  vi.stubEnv('IMAOHAO_MODEL_API_KEY', undefined)
+  const ctx = new Context()
+  await ctx.plugin(LlmRuntime)
+  await ctx.plugin(LlmPiAi, { providers: {} })
+  const models = await ctx.llm.listModels('imaohao-demo')
+  expect(models.map(model => [model.id, model.name])).toEqual([
+    ['default', '默认'],
+    ['iMaoHao-V6.1-Astra', 'iMaoHao-V6.1-Astra'],
+  ])
+  const finished = []
+  for await (const chunk of ctx.llm.stream({ provider: 'imaohao-demo', model: 'default', messages: [] })) {
+    if (chunk.type === 'finish') finished.push(chunk)
+  }
+  expect(finished).toMatchObject([{ kind: 'error', failure: { code: 'MISSING_CREDENTIAL' } }])
+})
+
+it('never exposes mock models in upstream runtime or on another provider route', async () => {
+  vi.stubEnv('IMAOHAO_BRANDING_TEST', '0')
+  const ctx = new Context()
+  await ctx.plugin(LlmRuntime)
+  await ctx.plugin(LlmPiAi, { providers: {} })
+  expect(ctx.llm.listProviders().some(provider => provider.id === 'imaohao-demo')).toBe(false)
+})
+
 it('resolves the exact pi-ai image budget for screenshot coordinates', () => {
   const adapter = adapterOf({ deepseek: { apiKeyEnv: 'PI_TEST_KEY', requestImagePixelBudget: 10_000, requestImageMaxBytes: 50_000 } })
   expect(adapter.imageRequestTarget('deepseek', 'deepseek-flash', { ...IMAGE_REF, width: 1000, height: 1000 }))
