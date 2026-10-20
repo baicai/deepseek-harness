@@ -119,6 +119,19 @@ async function main(): Promise<void> {
         throw new Error('iMaoHao Desktop model metadata did not resolve in the live Host')
       }
     }
+    // Read the *same* Session controller catalog method the desktop Client uses,
+    // not merely the adapter's direct listModels() response.
+    const sessionController = Reflect.get(ctx, 'sessionController') as
+      | { modelCatalog: () => Promise<{ groups: { id: string; models: { id: string }[] }[]; failures: { id: string; message: string }[] }> }
+      | undefined
+    if (sessionController === undefined) throw new Error('iMaoHao Desktop Session controller is missing')
+    const catalog = await sessionController.modelCatalog()
+    const group = catalog.groups.find(item => item.id === 'imaohao')
+    if (group?.models.length !== 2 || group.models[0]?.id !== 'default'
+      || group.models[1]?.id !== 'iMaoHao-V6.1-Astra') {
+      throw new Error('iMaoHao Desktop Session model catalog is missing mock routes: '
+        + JSON.stringify({ groups: catalog.groups.map(item => item.id), failures: catalog.failures }))
+    }
   }
   control.updateTasks = installDesktopUpdateTaskControl(ctx)
   control.quitInspection = installDesktopQuitInspection(ctx)
