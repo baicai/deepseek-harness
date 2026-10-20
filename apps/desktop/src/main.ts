@@ -317,6 +317,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
 async function main(): Promise<void> {
   // Isolate 贸号 profile/session/credential files from an upstream DSH installation.
   if (app.isPackaged && app.name === '贸号DSH') process.env.DSH_HOME = join(app.getPath('userData'), 'harness-home')
+  const imaohaoDemo = app.isPackaged && app.name === '贸号DSH'
   const desktopSettings = readDesktopSettings(app.getPath('userData'))
   void pruneCrashReports(app.getPath('logs'))
   const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
@@ -346,6 +347,9 @@ async function main(): Promise<void> {
   let workspaceRecovery: Promise<void> | undefined
   let mainWindow: BrowserWindow | undefined
   let welcomeWindow: BrowserWindow | undefined
+  let maohaoLoginWindow: BrowserWindow | undefined
+  let maohaoGateway: { url: string; token: string } | undefined
+  let maohaoUserToken: string | undefined
   let enteredWorkspace = false
   // NSIS passes --updated when it launches the application after installation.
   let raiseAfterUpdate = process.platform === 'win32' && process.argv.includes('--updated')
@@ -370,7 +374,7 @@ async function main(): Promise<void> {
   const isQuitting = (): boolean => quitting
   const currentMainWindow = (): BrowserWindow | undefined => mainWindow
   const ordinaryDialogs = new Set<AbortController>()
-  const currentDialogWindow = (): BrowserWindow | undefined => welcomeWindow ?? mainWindow
+  const currentDialogWindow = (): BrowserWindow | undefined => maohaoLoginWindow ?? welcomeWindow ?? mainWindow
   const updateOverlays = new DesktopUpdateOverlays()
   const updateDialog = new DesktopUpdateDialog(fileURLToPath(new URL('./preload-update-dialog.cjs', import.meta.url)), () => locale, updateOverlays)
   const isMandatory = (): boolean => mandatoryPolicy?.state.blocking === true
@@ -458,6 +462,13 @@ async function main(): Promise<void> {
         hostUrl = ready.url
         if (ready.injections === undefined) throw new Error('Desktop Host did not provide boot injections')
         injections = ready.injections
+        if (imaohaoDemo) {
+          // This branch does not call the DeepSeek account, token, or onboarding APIs.
+          // Mock model registration is verified in the actual Host before its ready IPC.
+          if (ready.mockGateway === undefined) throw new Error('iMaoHao mock gateway unavailable in Desktop Host')
+          maohaoGateway = ready.mockGateway
+          return
+        }
         welcomeBackend = await connectDesktopWelcome(ready.url, (input, init) => net.fetch(input, init), async () => (await session.defaultSession.cookies.get({ url: ready.url })).map(cookie => `${cookie.name}=${cookie.value}`).join('; '))
         analyticsEnabled = await welcomeBackend.analyticsEnabled().catch(() => false)
         if (!reportedLaunch) { reportedLaunch = true; void track('desktop_app_launch', {}) }
@@ -782,7 +793,7 @@ async function main(): Promise<void> {
   })
   ipcMain.handle(DESKTOP_IPC.onboardingApiKey, async (event) => {
     assertProductSender(event)
-    return (await readWelcomeState()).hasApiKey
+    return imaohaoDemo ? true : (await readWelcomeState()).hasApiKey
   })
   ipcMain.on(DESKTOP_IPC.onboardingActive, (event, active: unknown) => {
     const window = mainWindow
@@ -1160,6 +1171,10 @@ async function main(): Promise<void> {
     if (activate) window.show()
     else window.showInactive()
     enteredWorkspace = true
+    if (maohaoLoginWindow !== undefined) {
+      maohaoLoginWindow.close()
+      maohaoLoginWindow = undefined
+    }
     if (welcomeWindow !== undefined) {
       welcomeWindow.close()
       window.webContents.send(DESKTOP_IPC.enterWorkspace)
@@ -1236,8 +1251,61 @@ async function main(): Promise<void> {
     })().finally(() => { openingWelcome = undefined })
     return openingWelcome
   }
+  const showMaoHaoLogin = async (): Promise<void> => {
+    if (quitting || enteredWorkspace) return
+    if (maohaoLoginWindow !== undefined && !maohaoLoginWindow.isDestroyed()) {
+      maohaoLoginWindow.show()
+      maohaoLoginWindow.focus()
+      return
+    }
+    if (maohaoGateway === undefined) throw new Error('iMaoHao demo gateway is not ready')
+    const loginWindow = new BrowserWindow({
+      width: 490, height: 615, minWidth: 490, minHeight: 615,
+      maximizable: false, resizable: false, autoHideMenuBar: true,
+      backgroundColor: '#151719', title: '贸号DSH · Mock 登录',
+      webPreferences: {
+        preload: fileURLToPath(new URL('./preload-imaohao.cjs', import.meta.url)),
+        nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true,
+      },
+    })
+    maohaoLoginWindow = loginWindow
+    ipcMain.removeHandler('imaohao:mock-login')
+    ipcMain.handle('imaohao:mock-login', async (event, username: unknown, password: unknown) => {
+      if (event.sender !== loginWindow.webContents || event.senderFrame !== loginWindow.webContents.mainFrame) {
+        throw new Error('mock auth: sender not authorized')
+      }
+      if (typeof username !== 'string' || typeof password !== 'string'
+        || username.length > 120 || password.length > 120) return { ok: false, message: '账号格式无效' }
+      const gateway = maohaoGateway
+      if (gateway === undefined) return { ok: false, message: '演示服务未启动' }
+      try {
+        const response = await net.fetch(gateway.url + '/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + gateway.token },
+          body: JSON.stringify({ username, password }),
+        })
+        if (!response.ok) return { ok: false, message: '演示账号或密码错误' }
+        const data = await response.json() as { access_token?: unknown }
+        if (typeof data.access_token !== 'string') return { ok: false, message: '演示会话无效' }
+        maohaoUserToken = data.access_token
+        await enterWorkspace()
+        return { ok: true }
+      } catch {
+        return { ok: false, message: '贸号演示接口未响应' }
+      }
+    })
+    loginWindow.on('closed', () => {
+      if (maohaoLoginWindow === loginWindow) maohaoLoginWindow = undefined
+      ipcMain.removeHandler('imaohao:mock-login')
+      if (!enteredWorkspace && !quitting) app.quit()
+    })
+    await loginWindow.loadFile(join(app.getAppPath(), 'renderer', 'imaohao-login.html'))
+    mainWindow?.hide()
+    loginWindow.show()
+  }
   const openInitialWindow = async (): Promise<void> => {
     if (quitting || recovery.active) return
+    if (imaohaoDemo) { await showMaoHaoLogin(); return }
     const state = await readWelcomeState()
     if (isQuitting() || backend.state.phase !== 'ready') return
     locale = resolveDesktopStartupLocale(state.localePreference, systemLanguages)
@@ -1254,7 +1322,7 @@ async function main(): Promise<void> {
   focusPrimaryWindow = () => {
     if (quitting) return
     if (isMandatory()) { mandatoryUI?.focus(); return }
-    const window = welcomeWindow ?? mainWindow
+    const window = maohaoLoginWindow ?? welcomeWindow ?? mainWindow
     if (window === undefined || window.isDestroyed()) {
       try { createMainWindow() } catch (error) { reportFatal(error, 'main'); return }
       void (backend.state.phase === 'ready' ? openInitialWindow() : navigateMain(applicationUrl)).catch((error: unknown) => { reportFatal(error, 'main') })
