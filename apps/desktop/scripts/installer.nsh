@@ -30,6 +30,18 @@ ManifestDPIAware true
 !macroend
 
 !macro customInit
+  ; Branded Windows installer is per-machine because Program Files requires elevation.
+  ; Keep the registered per-machine path for upgrades. Never force LocalAppData.
+  !ifdef INSTALL_MODE_PER_ALL_USERS
+    ${If} "$(^Name)" == "贸号DSH"
+      ReadRegStr $2 HKLM "${UNINSTALL_REGISTRY_KEY}" InstallLocation
+      ${If} $2 == ""
+        StrCpy $INSTDIR "$PROGRAMFILES64\iMaoHao\iMaoHao-DSH"
+      ${Else}
+        StrCpy $INSTDIR $2
+      ${EndIf}
+    ${EndIf}
+  !else
   ${If} ${isForAllUsers}
     MessageBox MB_OK|MB_ICONEXCLAMATION "$(INSTALLER_PER_USER)" /SD IDOK
     SetErrorLevel 2
@@ -52,6 +64,7 @@ ManifestDPIAware true
       StrCpy $INSTDIR "$LOCALAPPDATA\\Programs\\iMaoHao-dsh"
     ${EndIf}
   ${EndIf}
+  !endif
   StrCpy $InstallerPath $INSTDIR
   StrCpy $InstallerTheme "auto"
   ${GetParameters} $0
