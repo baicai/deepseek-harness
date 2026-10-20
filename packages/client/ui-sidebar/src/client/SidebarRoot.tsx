@@ -305,7 +305,11 @@ export function SidebarRoot({
       {/* Footer actions stack above Settings in both sidebar widths. */}
       <div className={css.footArea}>
         <div className={css.footerActions}>
-          {renderSlot('sidebar.footer.action', { wide })}
+          {isMaoHaoDesktop
+            ? <span title="本地 Mock 账户，不使用 DeepSeek 登录" style={{ display: 'block', padding: wide ? '12px 14px' : '8px 4px', fontSize: 12, opacity: 0.75 }}>
+              {wide ? '贸号演示用户 · Mock' : 'Mock'}
+            </span>
+            : renderSlot('sidebar.footer.action', { wide })}
         </div>
         <div className={css.settingsArea}>
           {renderSlot('sidebar.settings', { wide })}
