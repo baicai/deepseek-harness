@@ -103,3 +103,14 @@ Acceptance checklist:
 ## License, credits and safe distribution
 
 Preserve the upstream MIT license and attribution. Changing user-facing branding does not grant official DeepSeek model services or an official 贸号 SSO. Do not publish unsigned debug packages as a production release. Do not set the upstream official auto-update feed on a separately branded distribution.
+
+## Windows install location (2026-10-20, pending real installer test)
+
+- Windows x64 贸号DSH is a **per-machine** installer and requests UAC elevation. The default destination for a new installation is `C:\Program Files\iMaoHao\iMaoHao-DSH\` (using the Windows `$PROGRAMFILES64` known folder).
+- The installer's existing custom welcome page exposes a native **choose folder** control. The selected folder is normalized to an application-owned leaf and the final path is shown in the installer.
+- Selected `D:\Software` => `D:\Software\iMaoHao\iMaoHao-DSH`.
+- Selected `D:\Software\iMaoHao` => `D:\Software\iMaoHao\iMaoHao-DSH`.
+- Selected `D:\Software\iMaoHao-DSH` => use exactly that folder; do not duplicate the leaf.
+- An existing **per-machine** 贸号DSH installation keeps its registered path on update. The previous per-user branded prototype does **not** auto-migrate: remove the old version first to avoid conflicting installs.
+- The destination still passes the existing installer checks (local fixed drive, no reparse point, no non-empty unknown folder, available space, write access) and is recorded in HKLM for the per-machine uninstaller.
+- **Requires actual Windows package/UI/UAC/uninstall smoke verification before release.** Source updates alone are not installed-app acceptance.
