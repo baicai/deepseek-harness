@@ -452,7 +452,7 @@ async function main(): Promise<void> {
     const hostInspectPort = developmentHostInspectPort(development)
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
       hostInspectPort, { ...hostEnvironment, ...(app.isPackaged && app.name === '贸号DSH'
-        ? { DSH_HOME: process.env.DSH_HOME, IMAOHAO_BRANDING_TEST: '1' } : {}), DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
+        ? { DSH_HOME: process.env.DSH_HOME, IMAOHAO_BRANDING_TEST: '1', IMAOHAO_MOCK_V2: '1' } : {}), DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
       primaryRuntime,
       resources, (next) => { platformView.setSession(next) })
     return {
