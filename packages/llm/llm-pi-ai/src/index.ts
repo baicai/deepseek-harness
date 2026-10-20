@@ -173,7 +173,7 @@ export function apply(ctx: Context, config: Config): void {
     // settings persisted an empty pi-ai providers object on an earlier login.
     // Missing credentials cause a clear error; the placeholders never fall back
     // to an authenticated DeepSeek model or call a remote model endpoint.
-    if (process.env.IMAOHAO_BRANDING_TEST === '1') {
+    if (process.env.IMAOHAO_BRANDING_TEST === '1' && process.env.IMAOHAO_MOCK_V2 !== '1') {
       configured['imaohao-demo'] = {
         displayName: 'iMaoHao-dsh（模拟模型）',
         api: 'openai-completions',
