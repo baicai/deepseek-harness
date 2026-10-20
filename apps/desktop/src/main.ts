@@ -350,6 +350,12 @@ async function main(): Promise<void> {
   let maohaoLoginWindow: BrowserWindow | undefined
   let maohaoGateway: { url: string; token: string } | undefined
   let maohaoUserToken: string | undefined
+  app.on('will-quit', () => {
+    if (!imaohaoDemo || maohaoGateway === undefined || maohaoUserToken === undefined) return
+    void net.fetch(maohaoGateway.url + '/auth/logout', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + maohaoUserToken },
+    }).catch(() => undefined)
+  })
   let enteredWorkspace = false
   // NSIS passes --updated when it launches the application after installation.
   let raiseAfterUpdate = process.platform === 'win32' && process.argv.includes('--updated')
