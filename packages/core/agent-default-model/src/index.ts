@@ -69,9 +69,8 @@ export class AgentDefaultModelConfig extends Service {
     // “默认” route even after the DeepSeek account initializer previously saved
     // one of its own defaults. Explicitly selected sessions are not changed.
     const configuredProvider = this.config.provider.get()
-    if (process.env.IMAOHAO_BRANDING_TEST === '1'
-      && (configuredProvider === 'deepseek-official' || configuredProvider === 'deepseek-account')) {
-      return selection({ provider: 'imaohao-demo', model: 'default' })
+    if (process.env.IMAOHAO_BRANDING_TEST === '1' && configuredProvider !== 'imaohao') {
+      return selection({ provider: 'imaohao', model: 'default' })
     }
     const reasoningEffort = this.config.reasoningEffort.get()
     return selection({
