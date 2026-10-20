@@ -90,7 +90,7 @@
     - id: agent-default-model
       name: '@deepseek-ai/dsh-agent-default-model'
       config:
-        provider: !!js "process.env.IMAOHAO_BRANDING_TEST === '1' ? 'imaohao-demo' : 'deepseek-official'"
+        provider: !!js "process.env.IMAOHAO_BRANDING_TEST === '1' ? 'imaohao' : 'deepseek-official'"
         model: !!js "process.env.IMAOHAO_BRANDING_TEST === '1' ? 'default' : 'deepseek-flash'"
 
     - id: jobs
@@ -134,11 +134,11 @@
     # document.
     - id: llm-pi-ai
       name: '@deepseek-ai/dsh-llm-pi-ai'
-      # Test-only: the two mock routes are discoverable but cannot reach an actual model.
-      # IMAOHAO_MODEL_API_KEY is intentionally absent; requests fail with MISSING_CREDENTIAL.
-      # Connect a real gateway by editing the desktop profile's cordis.patch.yml.
+      # Desktop Mock routes are owned by the persistent Host adapter named 'imaohao'.
+      # Do not install the obsolete 'imaohao-demo' / missing-credential route:
+      # it conflicts with the runtime Provider ID displayed in the desktop picker.
       config:
-        providers: !!js "process.env.IMAOHAO_BRANDING_TEST === '1' ? { 'imaohao-demo': { displayName: 'iMaoHao-dsh（模拟，未接入）', api: 'openai-completions', baseURL: 'http://127.0.0.1:39401/v1', apiKeyEnv: 'IMAOHAO_MODEL_API_KEY', models: [{ id: 'default', name: '默认', contextWindow: 32768, maxTokens: 4096 }, { id: 'iMaoHao-V6.1-Astra', name: 'iMaoHao-V6.1-Astra', contextWindow: 32768, maxTokens: 4096 }] } } : {}"
+        providers: {}
 
     - id: session-persistence-jsonl
       name: '@deepseek-ai/dsh-session-persistence-jsonl'
