@@ -5,7 +5,10 @@ on:
     branches: [imaohao-branding-test]
     paths:
       - 'apps/desktop/**'
+      - 'apps/desktop-host/**'
       - 'apps/web/**'
+      - 'packages/llm/**'
+      - 'packages/core/agent-default-model/**'
       - 'packages/bundle/**'
       - 'packages/client/**'
       - '.github/workflows/imaohao-desktop-build.yml'
@@ -13,7 +16,10 @@ on:
     branches: [master]
     paths:
       - 'apps/desktop/**'
+      - 'apps/desktop-host/**'
       - 'apps/web/**'
+      - 'packages/llm/**'
+      - 'packages/core/agent-default-model/**'
       - 'packages/bundle/**'
       - 'packages/client/**'
       - '.github/workflows/imaohao-desktop-build.yml'
