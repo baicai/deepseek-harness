@@ -772,6 +772,9 @@ importers:
 
   apps/desktop-host:
     dependencies:
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:*
+        version: link:../../packages/llm/llm
       '@deepseek-ai/cordis':
         specifier: workspace:~
         version: link:../../vendor/cordis
