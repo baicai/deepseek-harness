@@ -98,10 +98,26 @@ async function main(): Promise<void> {
     // packaged profile boots. Do not depend on external DeepSeek account state,
     // or on configuration that an existing user profile can override.
     mockGateway = await startMaoHaoDemoGateway()
-    ctx.llm.registerAdapter(['imaohao'], new MaoHaoDemoAdapter(mockGateway.url, mockGateway.internalToken))
-    const models = await ctx.llm.listModels('imaohao')
-    if (models.length !== 2 || models[0]?.id !== 'default' || models[1]?.id !== 'iMaoHao-V6.1-Astra') {
-      throw new Error('iMaoHao Desktop mock models did not register in the live Host')
+    // A Cordis plugin owns the registration for the full Host lifetime.
+    const demoAdapter = new MaoHaoDemoAdapter(mockGateway.url, mockGateway.internalToken)
+    await ctx.plugin({
+      name: 'imaohao-desktop-model-provider',
+      inject: ['llm'],
+      apply(pluginContext) {
+        pluginContext.llm.registerAdapter(['imaohao'], demoAdapter)
+      },
+    })
+    const route = ctx.llm.listProviders().find(provider => provider.id === 'imaohao')
+    const models = route === undefined ? [] : await ctx.llm.listModels('imaohao')
+    if (route === undefined || models.length !== 2 || models[0]?.id !== 'default'
+      || models[1]?.id !== 'iMaoHao-V6.1-Astra') {
+      throw new Error('iMaoHao Desktop mock provider was not registered in the live Host')
+    }
+    for (const model of models) {
+      const resolved = await ctx.llm.resolveModelInfo('imaohao', model.id)
+      if (resolved.provider !== 'imaohao' || resolved.id !== model.id) {
+        throw new Error('iMaoHao Desktop model metadata did not resolve in the live Host')
+      }
     }
   }
   control.updateTasks = installDesktopUpdateTaskControl(ctx)
