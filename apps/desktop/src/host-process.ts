@@ -108,6 +108,7 @@ async function exitsWithin(exit: Promise<void>, milliseconds: number): Promise<b
 export interface DesktopHostReady {
   readonly url: string
   readonly injections?: readonly unknown[] | undefined
+  readonly mockGateway?: { readonly url: string; readonly token: string }
 }
 
 /** The child has exited, but task teardown did not finish successfully. */
