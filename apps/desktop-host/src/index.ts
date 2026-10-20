@@ -9,6 +9,7 @@ import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-deepseek-account'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import * as desktopOffice from './office.ts'
+import { startMaoHaoDemoGateway, MaoHaoDemoAdapter } from './imaohao-mock.ts'
 
 import { installDesktopUpdateTaskControl } from './update-tasks.ts'
 import { installDesktopQuitInspection } from './quit-inspection.ts'
@@ -40,6 +41,7 @@ async function main(): Promise<void> {
       },
     }),
   })
+  let mockGateway: Awaited<ReturnType<typeof startMaoHaoDemoGateway>> | undefined
   let stopping: Promise<void> | undefined
   const control: {
     updateTasks?: ReturnType<typeof installDesktopUpdateTaskControl>
@@ -53,6 +55,7 @@ async function main(): Promise<void> {
     // Startup failure is reported by main; shutdown only owns a tree that booted.
     const running = await application.catch(() => undefined)
     await running?.shutdown.shutdown(0)
+    await mockGateway?.close()
     await send({ type: 'shutdown-complete' })
     if (process.connected) process.disconnect()
   })()
@@ -90,6 +93,17 @@ async function main(): Promise<void> {
   })
   process.once('disconnect', () => { void stop() })
   const { ctx } = await application
+  if (process.env.IMAOHAO_BRANDING_TEST === '1') {
+    // Register directly in the actual running Desktop Host, after the
+    // packaged profile boots. Do not depend on external DeepSeek account state,
+    // or on configuration that an existing user profile can override.
+    mockGateway = await startMaoHaoDemoGateway()
+    ctx.llm.registerAdapter(['imaohao'], new MaoHaoDemoAdapter(mockGateway.url, mockGateway.internalToken))
+    const models = await ctx.llm.listModels('imaohao')
+    if (models.length !== 2 || models[0]?.id !== 'default' || models[1]?.id !== 'iMaoHao-V6.1-Astra') {
+      throw new Error('iMaoHao Desktop mock models did not register in the live Host')
+    }
+  }
   control.updateTasks = installDesktopUpdateTaskControl(ctx)
   control.quitInspection = installDesktopQuitInspection(ctx)
   await ctx.plugin(desktopOffice, {
@@ -101,7 +115,8 @@ async function main(): Promise<void> {
     if (process.connected) process.send?.({ type: 'platform-session', session })
   })
   const url = ctx.connection.authenticatedUrl(`${ctx.webServer.protocol}//127.0.0.1:${String(ctx.webServer.port)}`)
-  if (process.connected) process.send?.({ type: 'ready', url, injections: ctx.webServer.collectIndexInjections() }, (error) => { if (error !== null) console.error(error) })
+  if (process.connected) process.send?.({ type: 'ready', url, injections: ctx.webServer.collectIndexInjections(),
+    ...(mockGateway === undefined ? {} : { mockGateway: { url: mockGateway.url, token: mockGateway.internalToken } }) }, (error) => { if (error !== null) console.error(error) })
 }
 
 /** Upper bound of the startup diagnostic carried over IPC; the head holds the message and stack. */
