@@ -69,8 +69,12 @@ export class ModelCatalogDirectory {
         routableProviders: response.value.routableProviders.filter(id => id === 'imaohao'),
         default: { provider: 'imaohao', model: 'default' },
       } : response.value
-      if (isMaoHaoDesktop && value.groups.length !== 1) {
-        throw new Error('贸号 Mock 模型未在 Desktop Host 注册。请检查演示网关和运行时。')
+      if (isMaoHaoDesktop && (value.groups.length !== 1 || value.groups[0]?.models.length !== 2)) {
+        const details = {
+          returnedProviders: response.value.groups.map(group => group.id),
+          failures: response.value.failures.filter(failure => failure.id === 'imaohao'),
+        }
+        throw new Error('贸号模型目录与 Desktop Host 不一致：' + JSON.stringify(details))
       }
       if (generation === this.generation) {
         for (const group of value.groups) {
