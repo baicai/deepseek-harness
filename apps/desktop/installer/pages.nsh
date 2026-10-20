@@ -209,6 +209,8 @@ FunctionEnd
 ; Page leave callbacks also run when Enter activates NSIS's hidden default button.
 Function InstallerWelcomeLeave
     ${NSD_GetText} $InstallerEdit $InstallerPath
+    Call InstallerNormalizePath
+    ${NSD_SetText} $InstallerEdit $InstallerPath
     Call InstallerPreflight
     ${If} $InstallerError != ""
         MessageBox MB_OK|MB_ICONEXCLAMATION "$InstallerError"
@@ -274,7 +276,9 @@ Function InstallerBrowsePath
     nsDialogs::SelectFolderDialog "$(INSTALLER_CHOOSE_PATH)" "$InstallerPath"
     Pop $0
     ${If} $0 != "error"
-        ${NSD_SetText} $InstallerEdit "$0"
+        StrCpy $InstallerPath $0
+        Call InstallerNormalizePath
+        ${NSD_SetText} $InstallerEdit "$InstallerPath"
         Call InstallerValidateEditedPath
     ${EndIf}
 FunctionEnd
