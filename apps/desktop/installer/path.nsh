@@ -117,14 +117,53 @@ FunctionEnd
 !macroend
 !insertmacro InstallerValidatePathFunction ""
 
+; The selection is a base directory unless the final segment is already the
+; product container or executable directory. Existing installs are not duplicated.
+Function InstallerNormalizePath
+    ${If} "$(^Name)" != "贸号DSH"
+        Return
+    ${EndIf}
+    StrCpy $0 $InstallerPath
+    ${Do}
+        StrLen $1 $0
+        ${If} $1 <= 3
+            ${ExitDo}
+        ${EndIf}
+        StrCpy $2 $0 1 -1
+        ${If} $2 != "\"
+            ${ExitDo}
+        ${EndIf}
+        StrCpy $0 $0 -1
+    ${Loop}
+    StrLen $1 $0
+    ${If} $1 == 3
+        ; Example: choosing the D:\ drive root.
+        StrCpy $InstallerPath "$0iMaoHao\iMaoHao-DSH"
+        Return
+    ${EndIf}
+    ${GetFileName} $0 $1
+    ${If} $1 == "iMaoHao-DSH"
+        StrCpy $InstallerPath $0
+    ${ElseIf} $1 == "iMaoHao"
+        StrCpy $InstallerPath "$0\iMaoHao-DSH"
+    ${Else}
+        StrCpy $InstallerPath "$0\iMaoHao\iMaoHao-DSH"
+    ${EndIf}
+FunctionEnd
+
 ; A new installation requires an empty directory; updates require the registered executable.
 Function InstallerPreflight
+    Call InstallerNormalizePath
     Call InstallerValidatePath
     ${If} $InstallerError != ""
         Return
     ${EndIf}
     StrCpy $INSTDIR $InstallerPath
-    ReadRegStr $0 HKCU "${INSTALL_REGISTRY_KEY}" "InstallLocation"
+    !ifdef INSTALL_MODE_PER_ALL_USERS
+        ReadRegStr $0 HKLM "${INSTALL_REGISTRY_KEY}" "InstallLocation"
+    !else
+        ReadRegStr $0 HKCU "${INSTALL_REGISTRY_KEY}" "InstallLocation"
+    !endif
     ${If} $0 != $INSTDIR
     ${OrIfNot} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
         FindFirst $0 $1 "$INSTDIR\*.*"
