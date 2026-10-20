@@ -9,6 +9,7 @@ interface ReadyEvent {
   readonly type: 'ready'
   readonly url: string
   readonly injections?: readonly unknown[] | undefined
+  readonly mockGateway?: { readonly url: string; readonly token: string }
 }
 
 interface FatalEvent {
@@ -209,7 +210,7 @@ export class DesktopHostProcess {
         child.kill('SIGTERM')
         return
       }
-      if (message.type === 'ready') this.readyResolve({ url: message.url, injections: message.injections })
+      if (message.type === 'ready') this.readyResolve({ url: message.url, injections: message.injections, ...message.mockGateway === undefined ? {} : { mockGateway: message.mockGateway } })
       else if (message.type === 'platform-session') this.onPlatformSession?.(message.session)
       else if (message.type === 'shutdown-complete') {
         if (this.stopping) this.shutdownCompleted = true
