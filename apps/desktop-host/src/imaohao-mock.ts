@@ -186,7 +186,8 @@ export class MaoHaoDemoAdapter extends LlmAdapter {
     }))
     const response = await fetch(this.endpoint + '/v1/chat/completions', {
       method: 'POST', headers: { Authorization: 'Bearer ' + this.internalToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: options.model, stream: false, messages }), signal: options.signal,
+      body: JSON.stringify({ model: options.model, stream: false, messages }),
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
     })
     if (!response.ok) throw new LlmError('iMaoHao mock request failed', 'MOCK_REQUEST_FAILED')
     const data = await response.json() as { choices: { message: { content: string } }[]; usage: { prompt_tokens: number; completion_tokens: number } }
