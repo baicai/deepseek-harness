@@ -53,7 +53,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify mock providers appear in Host catalog without real credentials
-        run: pnpm exec vitest run packages/llm/llm-pi-ai/tests/adapter.spec.ts
+        run: pnpm exec vitest run packages/llm/llm-pi-ai/tests/adapter.spec.ts apps/desktop-host/tests/imaohao-mock.spec.ts
 
       - name: Render iMaoHao-dsh actual-brand desktop icons
         run: |
