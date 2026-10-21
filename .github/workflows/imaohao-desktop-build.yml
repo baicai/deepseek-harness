@@ -83,6 +83,11 @@ jobs:
       - name: Build unsigned Windows installer
         run: pnpm run package:desktop:win:x64:unsigned
 
+      - name: Verify in-place reinstall with actual packaged NSIS installer
+        shell: pwsh
+        run: |
+          & ./apps/desktop/tests/windows-imaohao-reinstall-smoke.ps1 -ArtifactDirectory 'apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts'
+
       - name: Upload Windows installer
         uses: actions/upload-artifact@v7.0.1
         with:
