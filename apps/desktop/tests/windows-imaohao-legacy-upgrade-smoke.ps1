@@ -25,7 +25,15 @@ function Invoke-Setup([string]$Arguments, [int]$Expected) {
 }
 try {
   Invoke-Setup ('/S /D=' + $target) 0
-  if (-not (Test-Path -LiteralPath $program)) { throw 'Custom-path initial install did not create executable' }
+  if (-not (Test-Path -LiteralPath $program)) {
+    $roots = @('C:\Program Files\iMaoHao\iMaoHao-DSH', $target,
+      (Join-Path ([Environment]::GetFolderPath('ProgramFiles')) '贸号DSH'))
+    $evidence = @($roots | ForEach-Object {
+      $_ + ': exists=' + (Test-Path -LiteralPath $_) + ', executable='
+        + (Test-Path -LiteralPath (Join-Path $_ '贸号DSH.exe'))
+    })
+    throw "Custom-path initial install did not create executable at '$target'. Checked: $($evidence -join '; ')"
+  }
   if (-not (Test-Path -LiteralPath (Join-Path $target 'resources\app.asar'))) {
     throw 'Custom-path initial install did not create Electron payload'
   }
