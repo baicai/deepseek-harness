@@ -1,0 +1,89 @@
+name: iMaoHao DSH Shareable Release
+
+on:
+  push:
+    branches: [imaohao-branding-test]
+    paths:
+      - 'apps/desktop/**'
+      - 'apps/desktop-host/**'
+      - 'packages/bundle/**'
+      - 'packages/llm/**'
+      - 'packages/client/**'
+      - 'examples/imaohao-integration/**'
+      - '.github/workflows/imaohao-desktop-build.yml'
+      - '.github/workflows/imaohao-shareable-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: imaohao-dsh-publish-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/imaohao-branding-test'
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Wait for successful Windows DSH install and reinstall verification
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 90); do
+            run_json=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/imaohao-desktop-build.yml/runs?head_sha=$GITHUB_SHA&event=push&per_page=30")
+            run=$(printf '%s' "$run_json" | jq -r '.workflow_runs | map(select(.head_sha == env.GITHUB_SHA)) | first | if . == null then "" else (.id | tostring) + "|" + .status + "|" + (.conclusion // "") end')
+            if [[ -n "$run" ]]; then
+              IFS='|' read -r run_id status conclusion <<< "$run"
+              echo "Windows DSH build $run_id: $status/$conclusion"
+              if [[ "$status" == "completed" ]]; then
+                if [[ "$conclusion" != "success" ]]; then
+                  echo "Windows install/reinstall gates failed; refusing to publish an installer"
+                  exit 1
+                fi
+                echo "BUILD_RUN_ID=$run_id" >> "$GITHUB_ENV"
+                exit 0
+              fi
+            fi
+            sleep 20
+          done
+          echo "Timed out waiting for Windows smoke acceptance"
+          exit 1
+
+      - name: Download gated Windows EXE
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "iMaoHao-dsh-windows-x64-$GITHUB_SHA" --dir dist
+          find dist -maxdepth 1 -name 'iMaoHao-dsh-*-win-x64-unsigned.exe' -type f
+          test "$(find dist -maxdepth 1 -name 'iMaoHao-dsh-*-win-x64-unsigned.exe' -type f | wc -l)" -eq 1
+
+      - name: Build customer contract ZIP
+        run: |
+          cd examples
+          zip -q -r "$GITHUB_WORKSPACE/dist/iMaoHao-DSH-Customer-Integration-Kit.zip" imaohao-integration
+
+      - name: Publish GitHub Release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="imaohao-dsh-demo-${GITHUB_SHA:0:12}"
+          installer=$(find dist -maxdepth 1 -type f -name 'iMaoHao-dsh-*-win-x64-unsigned.exe' -print -quit)
+          gh release create "$tag" "$installer" dist/iMaoHao-DSH-Customer-Integration-Kit.zip \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "iMaoHao DSH Demo ${GITHUB_SHA:0:12}" --prerelease \
+            --notes "Based on real DSH Electron source. Mock login and mock model service. Windows build and silent install/reinstall gates passed. Unsigned developer preview; manual desktop login/model-selection/agent tests remain required."
+          echo "Release: https://github.com/$GITHUB_REPOSITORY/releases/tag/$tag"
