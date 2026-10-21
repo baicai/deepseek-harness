@@ -177,6 +177,16 @@ Function InstallerPreflight
                 StrCpy $9 "upgrade"
             ${EndIf}
         ${EndIf}
+        ; Earlier branded builds shipped without matching InstallLocation
+        ; records (and per-user/per-machine revisions used different hives).
+        ; Recognize a *complete* legacy iMaoHao DSH application on disk when
+        ; its exact executable, Electron payload and branded uninstaller all
+        ; exist. Never accept a directory just because its name matches.
+        ${If} $9 != "upgrade"
+        ${AndIf} ${FileExists} "$INSTDIR\resources\app.asar"
+        ${AndIf} ${FileExists} "$INSTDIR\Uninstall 贸号DSH.exe"
+            StrCpy $9 "upgrade"
+        ${EndIf}
     ${EndIf}
     ${If} $9 != "upgrade"
         FindFirst $0 $1 "$INSTDIR\*.*"
