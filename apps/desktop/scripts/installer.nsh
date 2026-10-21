@@ -33,13 +33,16 @@ ManifestDPIAware true
   ; Branded Windows installer is per-machine because Program Files requires elevation.
   ; Keep the registered per-machine path for upgrades. Never force LocalAppData.
   !ifdef INSTALL_MODE_PER_ALL_USERS
-    ${If} "$(^Name)" == "贸号DSH"
-      ; NSIS has already applied an explicit /D=<absolute path> to $INSTDIR.
-      ; It strips /D from $CMDLINE, so GetParameters cannot reliably detect
-      ; that override. Only replace Electron Builder's stock product-name
-      ; directory; preserve every other user-selected absolute install path.
+    ; Match the compiled executable filename, NOT $(^Name): NSIS may append
+    ; localized "installer" text to the runtime window title.
+    ${If} "${APP_EXECUTABLE_FILENAME}" == "贸号DSH.exe"
+      ; NSIS /D=<path> is stripped from $CMDLINE. Preserve explicit paths,
+      ; unless the current path is the packager's stock Program Files leaf.
       ${GetFileName} $INSTDIR $3
-      ${If} $3 == "贸号DSH"
+      ${If} $INSTDIR == ""
+      ${OrIf} $3 == "贸号DSH"
+      ${OrIf} $3 == "iMaoHao-dsh"
+      ${OrIf} $3 == "DeepSeek Harness"
         ReadRegStr $2 HKLM "${UNINSTALL_REGISTRY_KEY}" InstallLocation
         ${If} $2 == ""
           StrCpy $INSTDIR "$PROGRAMFILES64\iMaoHao\iMaoHao-DSH"
@@ -65,7 +68,7 @@ ManifestDPIAware true
   StrCpy $hasPerUserInstallation 1
   ; New branded installations must never inherit the @deepseek default path.
   ; Keep the registered install path when updating an existing 贸号DSH copy.
-  ${If} "$(^Name)" == "贸号DSH"
+  ${If} "${APP_EXECUTABLE_FILENAME}" == "贸号DSH.exe"
     ReadRegStr $2 HKCU "${UNINSTALL_REGISTRY_KEY}" InstallLocation
     ${If} $2 == ""
       StrCpy $INSTDIR "$LOCALAPPDATA\\Programs\\iMaoHao-dsh"
