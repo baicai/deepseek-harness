@@ -122,7 +122,7 @@ FunctionEnd
 ; The selection is a base directory unless the final segment is already the
 ; product container or executable directory. Existing installs are not duplicated.
 Function InstallerNormalizePath
-    ${If} "$(^Name)" != "贸号DSH"
+    ${If} "${APP_EXECUTABLE_FILENAME}" != "贸号DSH.exe"
         Return
     ${EndIf}
     StrCpy $0 $InstallerPath
