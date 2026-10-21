@@ -29,8 +29,7 @@ try {
     $roots = @('C:\Program Files\iMaoHao\iMaoHao-DSH', $target,
       (Join-Path ([Environment]::GetFolderPath('ProgramFiles')) '贸号DSH'))
     $evidence = @($roots | ForEach-Object {
-      $_ + ': exists=' + (Test-Path -LiteralPath $_) + ', executable='
-        + (Test-Path -LiteralPath (Join-Path $_ '贸号DSH.exe'))
+      $_ + ': exists=' + (Test-Path -LiteralPath $_) + ', executable=' + (Test-Path -LiteralPath (Join-Path $_ '贸号DSH.exe'))
     })
     throw "Custom-path initial install did not create executable at '$target'. Checked: $($evidence -join '; ')"
   }
