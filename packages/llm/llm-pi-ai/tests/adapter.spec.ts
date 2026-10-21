@@ -1117,31 +1117,29 @@ it.each([
   } else await expect(adapter.listModels('deepseek')).rejects.toBe(error)
 })
 
-it('iMaoHao branded test exposes two mock models without granting inference credentials', async () => {
+it('iMaoHao branded desktop exposes two routable catalog models from configured gateway', async () => {
   vi.stubEnv('IMAOHAO_BRANDING_TEST', '1')
-  // Even accidentally setting a local demo key must not enable remote calls.
-  vi.stubEnv('IMAOHAO_MODEL_API_KEY', 'should-never-authorize-a-mock')
+  vi.stubEnv('IMAOHAO_GATEWAY_BASE_URL', 'http://127.0.0.1:39401/v1')
+  vi.stubEnv('IMAOHAO_GATEWAY_API_KEY', 'integration-test-only-token')
   const ctx = new Context()
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(LlmPiAi, { providers: {} })
-  const models = await ctx.llm.listModels('imaohao-demo')
+  expect(ctx.llm.listProviders().map(provider => provider.id)).toContain('imaohao')
+  const models = await ctx.llm.listModels('imaohao')
   expect(models.map(model => [model.id, model.name])).toEqual([
     ['default', '默认'],
     ['iMaoHao-V6.1-Astra', 'iMaoHao-V6.1-Astra'],
   ])
-  const finished = []
-  for await (const chunk of ctx.llm.stream({ provider: 'imaohao-demo', model: 'default', messages: [] })) {
-    if (chunk.type === 'finish') finished.push(chunk)
-  }
-  expect(finished).toMatchObject([{ type: 'finish', reason: { kind: 'error', failure: { code: 'MISSING_CREDENTIAL' } } }])
+  const resolved = await ctx.llm.resolveModelInfo('imaohao', 'default')
+  expect(resolved.id).toBe('default')
 })
 
-it('never exposes mock models in upstream runtime or on another provider route', async () => {
+it('upstream runtime does not register customer mock providers', async () => {
   vi.stubEnv('IMAOHAO_BRANDING_TEST', '0')
   const ctx = new Context()
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(LlmPiAi, { providers: {} })
-  expect(ctx.llm.listProviders().some(provider => provider.id === 'imaohao-demo')).toBe(false)
+  expect(ctx.llm.listProviders().some(provider => provider.id === 'imaohao' || provider.id === 'imaohao-demo')).toBe(false)
 })
 
 it('resolves the exact pi-ai image budget for screenshot coordinates', () => {
