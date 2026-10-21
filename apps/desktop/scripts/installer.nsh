@@ -34,11 +34,18 @@ ManifestDPIAware true
   ; Keep the registered per-machine path for upgrades. Never force LocalAppData.
   !ifdef INSTALL_MODE_PER_ALL_USERS
     ${If} "$(^Name)" == "贸号DSH"
-      ReadRegStr $2 HKLM "${UNINSTALL_REGISTRY_KEY}" InstallLocation
-      ${If} $2 == ""
-        StrCpy $INSTDIR "$PROGRAMFILES64\iMaoHao\iMaoHao-DSH"
-      ${Else}
-        StrCpy $INSTDIR $2
+      ; NSIS has already applied an explicit /D=<absolute path> to $INSTDIR.
+      ; It strips /D from $CMDLINE, so GetParameters cannot reliably detect
+      ; that override. Only replace Electron Builder's stock product-name
+      ; directory; preserve every other user-selected absolute install path.
+      ${GetFileName} $INSTDIR $3
+      ${If} $3 == "贸号DSH"
+        ReadRegStr $2 HKLM "${UNINSTALL_REGISTRY_KEY}" InstallLocation
+        ${If} $2 == ""
+          StrCpy $INSTDIR "$PROGRAMFILES64\iMaoHao\iMaoHao-DSH"
+        ${Else}
+          StrCpy $INSTDIR $2
+        ${EndIf}
       ${EndIf}
     ${EndIf}
   !else
