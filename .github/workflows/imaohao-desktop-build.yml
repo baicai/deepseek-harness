@@ -29,7 +29,7 @@ on:
   workflow_call:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: imaohao-desktop-branding-${{ github.ref }}
@@ -100,27 +100,6 @@ jobs:
           path: apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts/*
           if-no-files-found: error
           retention-days: 14
-
-      - name: Publish shareable GitHub prerelease after Windows installation smoke
-        if: github.event_name == 'push' && github.ref == 'refs/heads/imaohao-branding-test'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $tag = 'imaohao-dsh-demo-' + $env:GITHUB_SHA.Substring(0,12)
-          $artifactDir = 'apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts'
-          $exe = @(Get-ChildItem -LiteralPath $artifactDir -File -Filter 'iMaoHao-dsh-*-win-x64-unsigned.exe')
-          if ($exe.Count -ne 1) { throw "Expected exactly one installer, found $($exe.Count)" }
-          $kit = Join-Path $env:RUNNER_TEMP 'iMaoHao-DSH-Customer-Integration-Kit.zip'
-          Compress-Archive -Path 'examples/imaohao-integration/*' -DestinationPath $kit -CompressionLevel Optimal -Force
-          $notes = @'
-          PRE-RELEASE DEMO: Actual DSH Electron Windows x64 client with iMaoHao branding, local mock account and model routes, and optional external customer integration gateway.
-          Built on Windows and gated by install/reinstall smoke. Mock replies are NOT real model inference.
-          Unsigned EXE: Windows SmartScreen may warn.
-          Remaining manual acceptance: launch, login, switch the two model routes, send messages, DSH session/tool regression, user-data and custom path.
-          '@
-          gh release create $tag $exe[0].FullName $kit --target $env:GITHUB_SHA --title "iMaoHao DSH Desktop Demo $tag" --notes $notes --prerelease
-          Write-Host "GitHub Release: https://github.com/$env:GITHUB_REPOSITORY/releases/tag/$tag"
 
       - name: Upload Windows packaging logs
         if: always()
