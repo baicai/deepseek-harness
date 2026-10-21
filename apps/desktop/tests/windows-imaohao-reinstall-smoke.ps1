@@ -23,7 +23,13 @@ function Invoke-Installer([string]$Path, [string]$Arguments) {
 }
 try {
     Invoke-Installer $installer[0].FullName '/S'
-    if (-not (Test-Path -LiteralPath $appExe)) { throw "First installation missing $appExe" }
+    if (-not (Test-Path -LiteralPath $appExe)) {
+        $alternatives = @($installPath, (Join-Path $programFiles '贸号DSH'), (Join-Path $programFiles 'iMaoHao-dsh'))
+        $diagnosis = @($alternatives | ForEach-Object {
+            $_ + ': exists=' + (Test-Path -LiteralPath $_) + '; main=' + (Test-Path -LiteralPath (Join-Path $_ '贸号DSH.exe'))
+        })
+        throw "Default-path first installation missing $appExe. Probes: $($diagnosis -join ' | ')"
+    }
     New-Item -ItemType Directory -Path $sentinelRoot -Force | Out-Null
     Set-Content -LiteralPath $sentinel -Value 'KEEP: user data survives in-place upgrade' -Encoding UTF8
     Write-Host "PASS: first Windows install to $installPath"
