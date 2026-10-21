@@ -17,8 +17,8 @@ $sentinel = Join-Path $sentinelRoot 'ci-preserve-user-data.txt'
 if (Test-Path -LiteralPath $installPath) {
     throw "CI runner is not clean; refusing to overwrite $installPath"
 }
-function Invoke-Installer([string]$Path, [string]$Args) {
-    $process = Start-Process -FilePath $Path -ArgumentList $Args -PassThru -Wait -WindowStyle Hidden
+function Invoke-Installer([string]$Path, [string]$Arguments) {
+    $process = Start-Process -FilePath $Path -ArgumentList $Arguments -PassThru -Wait -WindowStyle Hidden
     if ($process.ExitCode -ne 0) { throw "Installer '$Path' returned $($process.ExitCode)" }
 }
 try {
@@ -35,7 +35,10 @@ try {
     if (-not (Test-Path -LiteralPath $sentinel)) { throw 'In-place upgrade deleted user data' }
     $value = Get-Content -LiteralPath $sentinel -Raw
     if (-not $value.Contains('KEEP: user data')) { throw 'In-place upgrade changed user data' }
-    if (Test-Path -LiteralPath "$installPath.new-*") { throw 'Temporary staged directory remains' }
+    $parent = Split-Path -Parent $installPath
+    if (@(Get-ChildItem -LiteralPath $parent -Directory -Filter 'iMaoHao-DSH.new-*').Count -gt 0) {
+        throw 'Temporary staged directory remains'
+    }
     Write-Host 'PASS: second Windows install overwrites existing app and preserves user data'
 }
 finally {
