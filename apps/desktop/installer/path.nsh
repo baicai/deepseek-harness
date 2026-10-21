@@ -159,13 +159,24 @@ Function InstallerPreflight
         Return
     ${EndIf}
     StrCpy $INSTDIR $InstallerPath
-    !ifdef INSTALL_MODE_PER_ALL_USERS
-        ReadRegStr $0 HKLM "${INSTALL_REGISTRY_KEY}" "InstallLocation"
-    !else
-        ReadRegStr $0 HKCU "${INSTALL_REGISTRY_KEY}" "InstallLocation"
-    !endif
-    ${If} $0 != $INSTDIR
-    ${OrIfNot} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+    ; Upgrade ownership must use the SAME uninstall registry key as
+    ; customInstall's InstallLocation write. Older branded installers can have
+    ; registered in HKCU before the per-machine transition, so accept either
+    ; hive only when the exact destination also contains our executable.
+    ; This never authorizes arbitrary non-empty folders or a name-only match.
+    StrCpy $9 "new"
+    ${If} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+        ReadRegStr $0 HKLM "${UNINSTALL_REGISTRY_KEY}" "InstallLocation"
+        ${If} $0 == $INSTDIR
+            StrCpy $9 "upgrade"
+        ${Else}
+            ReadRegStr $0 HKCU "${UNINSTALL_REGISTRY_KEY}" "InstallLocation"
+            ${If} $0 == $INSTDIR
+                StrCpy $9 "upgrade"
+            ${EndIf}
+        ${EndIf}
+    ${EndIf}
+    ${If} $9 != "upgrade"
         FindFirst $0 $1 "$INSTDIR\*.*"
         ${DoWhile} $1 != ""
             ${If} $1 != "."
