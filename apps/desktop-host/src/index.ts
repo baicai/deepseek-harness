@@ -9,7 +9,7 @@ import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-deepseek-account'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import * as desktopOffice from './office.ts'
-import { startMaoHaoDemoGateway, MaoHaoDemoAdapter } from './imaohao-mock.ts'
+import { startMaoHaoDemoGateway } from './imaohao-mock.ts'
 
 import { installDesktopUpdateTaskControl } from './update-tasks.ts'
 import { installDesktopQuitInspection } from './quit-inspection.ts'
@@ -23,6 +23,28 @@ async function main(): Promise<void> {
   const installAnchor = join(runtimeDir, 'node_modules', '@deepseek-ai', 'dsh', 'package.json')
   const profile = loadProfileDirectory('dsh', projectDir, installAnchor)
   reportSkippedBundles('dsh', profile)
+  // Bootstrap the customer-compatible gateway before the Cordis profile loads.
+  // Provider activation happens declaratively during profile composition so the
+  // Session controller and UI observe the same lifetime and model catalog.
+  let mockGateway: Awaited<ReturnType<typeof startMaoHaoDemoGateway>> | undefined
+  if (process.env.IMAOHAO_BRANDING_TEST === '1') {
+    const externalURL = process.env.IMAOHAO_INTEGRATION_BASE_URL?.trim()
+    if (externalURL) {
+      const endpoint = new URL(externalURL)
+      const local = ['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname)
+      if (endpoint.username || endpoint.password || endpoint.search || endpoint.hash
+        || endpoint.pathname !== '/' || (endpoint.protocol !== 'https:' && !(local && endpoint.protocol === 'http:'))) {
+        throw new Error('iMaoHao integration requires an HTTPS origin (HTTP loopback allowed)')
+      }
+      const token = process.env.IMAOHAO_INTEGRATION_SERVICE_TOKEN
+      if (!token || token.length < 12) throw new Error('IMAOHAO_INTEGRATION_SERVICE_TOKEN is required for external gateway')
+      mockGateway = { url: endpoint.origin, internalToken: token, close: async () => {} }
+    } else {
+      mockGateway = await startMaoHaoDemoGateway()
+    }
+    process.env.IMAOHAO_GATEWAY_BASE_URL = mockGateway.url + '/v1'
+    process.env.IMAOHAO_GATEWAY_API_KEY = mockGateway.internalToken
+  }
   const application = runProfile({
     environment: loadLayeredEnv('dsh'),
     profile: 'desktop',
@@ -41,7 +63,6 @@ async function main(): Promise<void> {
       },
     }),
   })
-  let mockGateway: Awaited<ReturnType<typeof startMaoHaoDemoGateway>> | undefined
   let stopping: Promise<void> | undefined
   const control: {
     updateTasks?: ReturnType<typeof installDesktopUpdateTaskControl>
@@ -94,42 +115,24 @@ async function main(): Promise<void> {
   process.once('disconnect', () => { void stop() })
   const { ctx } = await application
   if (process.env.IMAOHAO_BRANDING_TEST === '1') {
-    // Register directly in the actual running Desktop Host, after the
-    // packaged profile boots. Do not depend on external DeepSeek account state,
-    // or on configuration that an existing user profile can override.
-    mockGateway = await startMaoHaoDemoGateway()
-    // A Cordis plugin owns the registration for the full Host lifetime.
-    const demoAdapter = new MaoHaoDemoAdapter(mockGateway.url, mockGateway.internalToken)
-    await ctx.plugin({
-      name: 'imaohao-desktop-model-provider',
-      inject: ['llm'],
-      apply(pluginContext) {
-        pluginContext.llm.registerAdapter(['imaohao'], demoAdapter)
-      },
-    })
+    // Observe only the declaratively registered live provider, exactly as the
+    // Session Remote sees it; don't add a late, hidden second model registry.
     const route = ctx.llm.listProviders().find(provider => provider.id === 'imaohao')
     const models = route === undefined ? [] : await ctx.llm.listModels('imaohao')
     if (route === undefined || models.length !== 2 || models[0]?.id !== 'default'
       || models[1]?.id !== 'iMaoHao-V6.1-Astra') {
-      throw new Error('iMaoHao Desktop mock provider was not registered in the live Host')
+      throw new Error('iMaoHao route missing from profile model registry: '
+        + JSON.stringify(ctx.llm.listProviders().map(provider => provider.id)))
     }
-    for (const model of models) {
-      const resolved = await ctx.llm.resolveModelInfo('imaohao', model.id)
-      if (resolved.provider !== 'imaohao' || resolved.id !== model.id) {
-        throw new Error('iMaoHao Desktop model metadata did not resolve in the live Host')
-      }
-    }
-    // Read the *same* Session controller catalog method the desktop Client uses,
-    // not merely the adapter's direct listModels() response.
     const sessionController = Reflect.get(ctx, 'sessionController') as
       | { modelCatalog: () => Promise<{ groups: { id: string; models: { id: string }[] }[]; failures: { id: string; message: string }[] }> }
       | undefined
-    if (sessionController === undefined) throw new Error('iMaoHao Desktop Session controller is missing')
+    if (sessionController === undefined) throw new Error('iMaoHao Session controller is missing')
     const catalog = await sessionController.modelCatalog()
     const group = catalog.groups.find(item => item.id === 'imaohao')
     if (group?.models.length !== 2 || group.models[0]?.id !== 'default'
       || group.models[1]?.id !== 'iMaoHao-V6.1-Astra') {
-      throw new Error('iMaoHao Desktop Session model catalog is missing mock routes: '
+      throw new Error('iMaoHao route missing from actual Session.modelCatalog: '
         + JSON.stringify({ groups: catalog.groups.map(item => item.id), failures: catalog.failures }))
     }
   }
