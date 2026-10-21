@@ -169,16 +169,20 @@ export function apply(ctx: Context, config: Config): void {
     const raw = config.providers.get()
     if (raw === lastRaw && memoized !== undefined) return memoized
     const configured = (structuredClone(raw) ?? {}) as NonNullable<import('./config.ts').Options['providers']>
-    // The bundled desktop test keeps its two fake model routes visible even if
-    // settings persisted an empty pi-ai providers object on an earlier login.
-    // Missing credentials cause a clear error; the placeholders never fall back
-    // to an authenticated DeepSeek model or call a remote model endpoint.
-    if (process.env.IMAOHAO_BRANDING_TEST === '1' && process.env.IMAOHAO_MOCK_V2 !== '1') {
-      configured['imaohao-demo'] = {
-        displayName: 'iMaoHao-dsh（模拟模型）',
+    // A branded Desktop builds its real model route from the endpoint selected
+    // by the Host before profile startup. Do not let a persisted empty models
+    // setting silently remove the route from the Session model catalog.
+    if (process.env.IMAOHAO_BRANDING_TEST === '1') {
+      delete configured['imaohao-demo']
+      const baseURL = process.env.IMAOHAO_GATEWAY_BASE_URL
+      if (baseURL === undefined || baseURL.length === 0) {
+        throw new LlmError('iMaoHao desktop model gateway has not been configured', 'MISSING_CREDENTIAL')
+      }
+      configured.imaohao = {
+        displayName: '贸号模型',
         api: 'openai-completions',
-        baseURL: 'http://127.0.0.1:39401/v1',
-        apiKeyEnv: 'IMAOHAO_MODEL_API_KEY',
+        baseURL,
+        apiKeyEnv: 'IMAOHAO_GATEWAY_API_KEY',
         models: [
           { id: 'default', name: '默认', contextWindow: 32768, maxTokens: 4096 },
           { id: 'iMaoHao-V6.1-Astra', name: 'iMaoHao-V6.1-Astra', contextWindow: 32768, maxTokens: 4096 },
@@ -206,12 +210,6 @@ export function apply(ctx: Context, config: Config): void {
     provider: string,
     profile: ResolvedPiAiProviderProfile,
   ): Promise<string | undefined> => {
-    // Never send a live request from the hardcoded, non-existent mock route,
-    // even if a developer accidentally exports its test credential. Real
-    // iMaoHao API integration must use a separate configured provider route.
-    if (process.env.IMAOHAO_BRANDING_TEST === '1' && provider === 'imaohao-demo') {
-      throw new LlmError('iMaoHao-dsh: simulated model only; configure a real 贸号 model gateway first', 'MISSING_CREDENTIAL')
-    }
     const ref = profile.apiKeyEnv
     // Only a profile that names no credential at all defers to pi-ai's
     // provider-native discovery. Once one is named, a miss must fail loud:
