@@ -90,16 +90,18 @@ Function ${PREFIX}InstallerValidatePath
                 Return
             ${EndIf}
         ${EndIf}
+        ; Windows and its descendants are never installation locations.
         ${If} $2 == $WINDIR
-        ${OrIf} $2 == $PROGRAMFILES32
+            Return
+        ${EndIf}
+        ; Program Files, the profile and LocalAppData may be *ancestors* of
+        ; our dedicated application directory. Reject only exact roots, not
+        ; their valid descendants (otherwise the default path can never install).
+        ${If} $2 == $PROGRAMFILES32
         ${OrIf} $2 == $PROGRAMFILES64
         ${OrIf} $2 == $PROFILE
         ${OrIf} $2 == $LOCALAPPDATA
-            ; Ancestors PROFILE and LOCALAPPDATA are allowed; the selected directory itself is not.
-            ${If} $2 == $WINDIR
-            ${OrIf} $2 == $PROGRAMFILES32
-            ${OrIf} $2 == $PROGRAMFILES64
-            ${OrIf} $2 == $InstallerPath
+            ${If} $2 == $InstallerPath
                 Return
             ${EndIf}
         ${EndIf}
