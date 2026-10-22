@@ -3,6 +3,7 @@ import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
 /** Electron shell: desktop project ownership, custom protocol, windows, and lifecycle. */
 
 import { readFile, writeFile } from 'node:fs/promises'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -78,6 +79,24 @@ let windowsLanguage: string | undefined
  * failure while tearing down a ready backend still reads as `running`.
  */
 let backendReady = false
+/** Runtime product identity is a bundled manifest marker, never an installer filename.
+ * Electron's app.name may differ from electron-builder productName; that previously
+ * silently activated the upstream DeepSeek login despite a branded installer.
+ */
+function readPackagedEdition(): boolean {
+  if (!app.isPackaged) return false
+  const manifest = JSON.parse(readFileSync(join(app.getAppPath(), 'package.json'), 'utf8')) as unknown
+  return typeof manifest === 'object' && manifest !== null
+    && 'imaohaoDesktopEdition' in manifest && manifest.imaohaoDesktopEdition === 'mock-v2'
+}
+const isMaoHaoEdition = readPackagedEdition()
+if (isMaoHaoEdition) {
+  app.setName('贸号DSH')
+  const userData = join(app.getPath('appData'), '贸号DSH')
+  mkdirSync(userData, { recursive: true })
+  app.setPath('userData', userData)
+  process.env.DSH_HOME = join(userData, 'harness-home')
+}
 /** Error-level console output of the primary window, attached to crash reports. */
 const rendererConsole = new RendererConsoleTail()
 
@@ -316,9 +335,8 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
 }
 
 async function main(): Promise<void> {
-  // Isolate 贸号 profile/session/credential files from an upstream DSH installation.
-  if (app.isPackaged && app.name === '贸号DSH') process.env.DSH_HOME = join(app.getPath('userData'), 'harness-home')
-  const imaohaoDemo = app.isPackaged && app.name === '贸号DSH'
+  // This was previously based on app.name, which need not equal the NSIS productName.
+  const imaohaoDemo = isMaoHaoEdition
   const desktopSettings = readDesktopSettings(app.getPath('userData'))
   void pruneCrashReports(app.getPath('logs'))
   const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
@@ -485,7 +503,7 @@ async function main(): Promise<void> {
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
-      hostInspectPort, { ...hostEnvironment, ...(app.isPackaged && app.name === '贸号DSH'
+      hostInspectPort, { ...hostEnvironment, ...(imaohaoDemo
         ? { DSH_HOME: process.env.DSH_HOME, IMAOHAO_BRANDING_TEST: '1', IMAOHAO_MOCK_V2: '1' } : {}), DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
       primaryRuntime,
       resources, (next) => { platformView.setSession(next) })
@@ -1488,6 +1506,24 @@ async function main(): Promise<void> {
   publishUpdate(updateState)
 }
 
+// Windows CI checks the *installed binary* rather than the builder's config.
+// Keep the diagnostic behind an explicit CLI argument and never expose secrets.
+const brandProbe = process.argv.find(argument => argument.startsWith('--imaohao-brand-check='))
+if (brandProbe !== undefined) {
+  const output = brandProbe.slice('--imaohao-brand-check='.length)
+  if (!isMaoHaoEdition || app.name !== '贸号DSH' || output.length === 0) {
+    console.error('iMaoHao brand check failed: packaged edition is not active')
+    app.exit(12)
+  } else {
+    writeFileSync(output, JSON.stringify({
+      edition: 'mock-v2',
+      name: app.name,
+      userData: app.getPath('userData'),
+      gatewayMode: 'imaohao',
+    }), 'utf8')
+    app.exit(0)
+  }
+} else {
 const ownsDesktopInstance = claimDesktopSingleInstance(app, () => { focusPrimaryWindow() })
 
 if (ownsDesktopInstance) void app.whenReady().then(main).catch(async (error: unknown) => {
@@ -1502,3 +1538,4 @@ if (ownsDesktopInstance) void app.whenReady().then(main).catch(async (error: unk
   console.error(error)
   app.exit(1)
 })
+}
