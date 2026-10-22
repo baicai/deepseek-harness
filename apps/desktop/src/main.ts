@@ -1081,7 +1081,7 @@ async function main(): Promise<void> {
     // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
     try {
       tray = new DesktopTray({ iconPath: trayIconPath, locale: currentDesktopLocale,
-        mouse: imaohaoDemo ? () => mouseBridge.snapshot() : undefined,
+        ...(imaohaoDemo ? { mouse: () => mouseBridge.snapshot() } : {}),
         open: () => { focusPrimaryWindow() }, quit: () => { app.quit() } })
     } catch (error) { console.warn('desktop tray: unavailable', error) }
   }
