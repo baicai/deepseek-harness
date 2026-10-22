@@ -54,6 +54,7 @@ try {
     }
     Remove-Item -LiteralPath $brandFile -Force
     Write-Host "PASS: installed Electron runtime activates 贸号 Mock login edition and isolated userData"
+    & (Join-Path $PSScriptRoot 'windows-imaohao-login-smoke.ps1') -InstalledExe $appExe
     New-Item -ItemType Directory -Path $sentinelRoot -Force | Out-Null
     Set-Content -LiteralPath $sentinel -Value 'KEEP: user data survives in-place upgrade' -Encoding UTF8
     Write-Host "PASS: first Windows install to $installPath"
