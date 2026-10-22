@@ -1366,7 +1366,7 @@ async function main(): Promise<void> {
     }
     if (maohaoGateway === undefined) throw new Error('iMaoHao demo gateway is not ready')
     const loginWindow = new BrowserWindow({
-      width: 490, height: 615, minWidth: 490, minHeight: 615,
+      width: 490, height: 745, minWidth: 490, minHeight: 745,
       maximizable: false, resizable: false, autoHideMenuBar: true,
       backgroundColor: '#151719', title: '贸号DSH · Mock 登录',
       webPreferences: {
