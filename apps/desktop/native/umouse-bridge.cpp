@@ -10,6 +10,7 @@
 #include <cwchar>
 #include <deque>
 #include <io.h>
+#include <iostream>
 #include <fcntl.h>
 #include <mutex>
 #include <string>
@@ -115,7 +116,7 @@ int wmain(int argc, wchar_t** argv) {
   if (!length || length >= MAX_PATH) return 2;
   wchar_t* slash = std::wcsrchr(path, L'\\');
   if (slash == nullptr) return 2;
-  std::wcscpy(slash + 1, L"uMouseSdk.dll");
+  wcscpy_s(slash + 1, static_cast<size_t>(MAX_PATH - (slash - path) - 1), L"uMouseSdk.dll");
   const HMODULE module = LoadLibraryExW(path, nullptr,
       LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
   if (!module) { std::fprintf(stderr, "uMouse SDK DLL could not load (win32=%lu)\n", GetLastError()); return 3; }
