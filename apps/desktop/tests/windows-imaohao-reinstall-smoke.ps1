@@ -48,12 +48,12 @@ try {
     }
     $edition = Get-Content -LiteralPath $brandFile -Raw | ConvertFrom-Json
     if ($edition.edition -ne 'mock-v2' -or $edition.name -ne '贸号DSH'
-        -or $edition.gatewayMode -ne 'imaohao'
+        -or $edition.gatewayMode -ne 'imaohao' -or $edition.uMousePanel -ne $true
         -or $edition.userData -ne (Join-Path $env:APPDATA '贸号DSH')) {
         throw "Installed app is not branded at runtime: $($edition | ConvertTo-Json -Compress)"
     }
     Remove-Item -LiteralPath $brandFile -Force
-    Write-Host "PASS: installed Electron runtime activates 贸号 Mock login edition and isolated userData"
+    Write-Host "PASS: installed Electron runtime activates 贸号 login and ships uMouse device management UI"
     & (Join-Path $PSScriptRoot 'windows-imaohao-login-smoke.ps1') -InstalledExe $appExe
     New-Item -ItemType Directory -Path $sentinelRoot -Force | Out-Null
     Set-Content -LiteralPath $sentinel -Value 'KEEP: user data survives in-place upgrade' -Encoding UTF8
