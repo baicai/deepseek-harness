@@ -2,6 +2,7 @@
 const form = document.getElementById('login-form')
 const status = document.getElementById('message')
 const button = document.getElementById('login-button')
+document.getElementById('mouse-open').addEventListener('click', () => { void window.imaohaoDemo.mouseDevices() })
 form.addEventListener('submit', async event => {
   event.preventDefault()
   status.textContent = ''
