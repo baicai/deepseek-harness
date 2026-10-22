@@ -44,7 +44,7 @@ try {
     }
     if (@($seen | Where-Object { $_ -like '*贸号DSH*Mock*登录*' }).Count -gt 0) {
       Write-Host "PASS: actual installed Windows client visibly opens 贸号 Mock login: $($seen -join ' | ')"
-      exit 0
+      return
     }
     Start-Sleep -Seconds 2
   }
