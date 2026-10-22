@@ -61,6 +61,7 @@ import { DesktopUpdateOverlays } from './update-overlay.ts'
 import { DesktopQuitConfirmation } from './quit-confirmation.ts'
 import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
+import { MouseBridge } from './umouse-bridge.ts'
 
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => {}
@@ -346,6 +347,30 @@ async function main(): Promise<void> {
   let startup: Promise<void> | undefined
   let workspaceRecovery: Promise<void> | undefined
   let mainWindow: BrowserWindow | undefined
+  // Native uMouse SDK lives in its own process; only the branded Windows
+  // build starts it. Electron remains usable if the hardware or DLL fails.
+  const mouseBridge = new MouseBridge(
+    join(process.resourcesPath, 'umouse-sdk'), app.getPath('logs'),
+    (deviceEvent) => {
+      if (deviceEvent.kind === 'message' && deviceEvent.event.type === 'keyEvent'
+        && deviceEvent.event.key === 'ai' && deviceEvent.event.action === 'click') {
+        focusPrimaryWindow()
+      }
+      if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(DESKTOP_IPC.mouseEvent, deviceEvent)
+      }
+    },
+    (status) => {
+      if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(DESKTOP_IPC.mouseStatusChanged, status)
+      }
+    },
+  )
+  if (imaohaoDemo && process.platform === 'win32') {
+    // PCM leaves the helper only when explicitly opted in by the integrator.
+    mouseBridge.start(process.env.IMAOHAO_MOUSE_PCM_BRIDGE === '1')
+  }
+  app.on('will-quit', () => { mouseBridge.stop() })
   let welcomeWindow: BrowserWindow | undefined
   let maohaoLoginWindow: BrowserWindow | undefined
   let maohaoGateway: { url: string; token: string } | undefined
@@ -706,6 +731,14 @@ async function main(): Promise<void> {
   const shortcuts = installDesktopShortcuts(() => mainWindow, app.getPath('userData'),
     process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux', () => { refreshApplicationMenu() }, window => updateOverlays.input(window))
   app.on('will-quit', () => { shortcuts.dispose() })
+
+  ipcMain.handle(DESKTOP_IPC.mouseStatus, (event) => {
+    assertDesktopSender(event, ['app'])
+    if (event.sender !== mainWindow?.webContents || event.senderFrame !== event.sender.mainFrame) {
+      throw new Error('dsh desktop: untrusted mouse status requester')
+    }
+    return mouseBridge.snapshot()
+  })
 
   ipcMain.handle(DESKTOP_IPC.boot, async (event) => {
     assertDesktopSender(event, ['app'])
