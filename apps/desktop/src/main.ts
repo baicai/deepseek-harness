@@ -365,6 +365,7 @@ async function main(): Promise<void> {
   let startup: Promise<void> | undefined
   let workspaceRecovery: Promise<void> | undefined
   let mainWindow: BrowserWindow | undefined
+  let mousePanelWindow: BrowserWindow | undefined
   let relabelMouseTray: (() => void) | undefined
   // Native uMouse SDK lives in its own process; only the branded Windows
   // build starts it. Electron remains usable if the hardware or DLL fails.
@@ -378,11 +379,17 @@ async function main(): Promise<void> {
       if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send(DESKTOP_IPC.mouseEvent, deviceEvent)
       }
+      if (mousePanelWindow !== undefined && !mousePanelWindow.isDestroyed() && deviceEvent.kind !== 'audio') {
+        mousePanelWindow.webContents.send(DESKTOP_IPC.mouseEvent, deviceEvent)
+      }
     },
     (status) => {
       relabelMouseTray?.()
       if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send(DESKTOP_IPC.mouseStatusChanged, status)
+      }
+      if (mousePanelWindow !== undefined && !mousePanelWindow.isDestroyed()) {
+        mousePanelWindow.webContents.send(DESKTOP_IPC.mouseStatusChanged, status)
       }
     },
   )
@@ -391,8 +398,45 @@ async function main(): Promise<void> {
     mouseBridge.start(process.env.IMAOHAO_MOUSE_PCM_BRIDGE === '1')
   }
   app.on('will-quit', () => { mouseBridge.stop() })
-  let welcomeWindow: BrowserWindow | undefined
   let maohaoLoginWindow: BrowserWindow | undefined
+  /** Desktop-owned hardware panel uses the live DLL-backed device snapshot only. */
+  const showMousePanel = (): void => {
+    if (!imaohaoDemo || quitting || shuttingDown) return
+    if (mousePanelWindow !== undefined && !mousePanelWindow.isDestroyed()) {
+      mousePanelWindow.show()
+      mousePanelWindow.focus()
+      return
+    }
+    const window = new BrowserWindow({
+      title: '贸号DSH · 智能鼠标设备管理',
+      width: 565, height: 780, minWidth: 470, minHeight: 560,
+      backgroundColor: '#101821',
+      autoHideMenuBar: true,
+      show: false,
+      webPreferences: {
+        preload: fileURLToPath(new URL('./preload-imaohao-mouse.cjs', import.meta.url)),
+        nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true,
+      },
+    })
+    mousePanelWindow = window
+    window.on('closed', () => { if (mousePanelWindow === window) mousePanelWindow = undefined })
+    window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+    window.webContents.on('will-navigate', event => { event.preventDefault() })
+    window.once('ready-to-show', () => { if (!window.isDestroyed()) window.show() })
+    void window.loadFile(join(app.getAppPath(), 'renderer', 'imaohao-mouse.html'))
+      .catch((error: unknown) => { console.error('iMaoHao mouse panel load failed', error) })
+  }
+  ipcMain.handle('imaohao:mouse-panel-status', (event) => {
+    if (!imaohaoDemo || event.sender !== mousePanelWindow?.webContents
+      || event.senderFrame !== event.sender.mainFrame) throw new Error('untrusted mouse panel status request')
+    return mouseBridge.snapshot()
+  })
+  ipcMain.handle('imaohao:mouse-open', (event) => {
+    if (!imaohaoDemo || event.sender !== maohaoLoginWindow?.webContents
+      || event.senderFrame !== event.sender.mainFrame) throw new Error('untrusted mouse panel open request')
+    showMousePanel()
+  })
+  let welcomeWindow: BrowserWindow | undefined
   let maohaoGateway: { url: string; token: string } | undefined
   let maohaoUserToken: string | undefined
   app.on('will-quit', () => {
@@ -1099,7 +1143,7 @@ async function main(): Promise<void> {
     // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
     try {
       tray = new DesktopTray({ iconPath: trayIconPath, locale: currentDesktopLocale,
-        ...(imaohaoDemo ? { mouse: () => mouseBridge.snapshot() } : {}),
+        ...(imaohaoDemo ? { mouse: () => mouseBridge.snapshot(), openMouse: showMousePanel } : {}),
         open: () => { focusPrimaryWindow() }, quit: () => { app.quit() } })
     } catch (error) { console.warn('desktop tray: unavailable', error) }
   }
@@ -1232,6 +1276,7 @@ async function main(): Promise<void> {
     if (activate) window.show()
     else window.showInactive()
     enteredWorkspace = true
+    if (imaohaoDemo) showMousePanel()
     if (maohaoLoginWindow !== undefined) {
       maohaoLoginWindow.close()
       maohaoLoginWindow = undefined
