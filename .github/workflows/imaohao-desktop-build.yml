@@ -40,6 +40,8 @@ env:
   DSH_TELEMETRY_DISABLED: '1'
   IMAOHAO_BRANDING_TEST: '1'
   DSH_CLIENT_IMAOHAO_BRANDING: '1'
+  # Unique build version makes each demo EXE distinguishable from yesterday's installer.
+  DSH_DESKTOP_BUILD_VERSION: '0.2.1-alpha.5.20261023.${{ github.run_number }}.${{ github.run_attempt }}'
 
 jobs:
   windows-x64:
