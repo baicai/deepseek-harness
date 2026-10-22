@@ -33,17 +33,23 @@ ManifestDPIAware true
   ; Branded Windows installer is per-machine because Program Files requires elevation.
   ; Keep the registered per-machine path for upgrades. Never force LocalAppData.
   !ifdef INSTALL_MODE_PER_ALL_USERS
-    ; Match the compiled executable filename, NOT $(^Name): NSIS may append
-    ; localized "installer" text to the runtime window title.
     ${If} "${APP_EXECUTABLE_FILENAME}" == "贸号DSH.exe"
-      ; NSIS /D=<path> is stripped from $CMDLINE. Preserve explicit paths,
-      ; unless the current path is the packager's stock Program Files leaf.
-      ${GetFileName} $INSTDIR $3
-      ${If} $INSTDIR == ""
-      ${OrIf} $3 == "贸号DSH"
-      ${OrIf} $3 == "iMaoHao-dsh"
-      ${OrIf} $3 == "DeepSeek Harness"
-        ReadRegStr $2 HKLM "${UNINSTALL_REGISTRY_KEY}" InstallLocation
+      ; electron-builder already called initMultiUser. The supported
+      ; GetDParameter macro recovers /D= even when the selected path contains
+      ; spaces. Do not attempt to infer user intent from $INSTDIR basename.
+      !insertmacro GetDParameter $R0
+      ${If} $R0 != ""
+        StrCpy $INSTDIR $R0
+      ${Else}
+        ; Prefer the same app-registry key that electron-builder writes.
+        ; Earlier iMaoHao builds used the uninstall-registry key instead.
+        ReadRegStr $2 HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation
+        ${If} $2 == ""
+          ReadRegStr $2 HKLM "${UNINSTALL_REGISTRY_KEY}" InstallLocation
+        ${EndIf}
+        ${If} $2 == ""
+          ReadRegStr $2 HKCU "${UNINSTALL_REGISTRY_KEY}" InstallLocation
+        ${EndIf}
         ${If} $2 == ""
           StrCpy $INSTDIR "$PROGRAMFILES64\iMaoHao\iMaoHao-DSH"
         ${Else}
