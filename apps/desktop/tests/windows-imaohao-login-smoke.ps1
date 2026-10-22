@@ -42,7 +42,7 @@ try {
     if (@($seen | Where-Object { $_ -match 'DeepSeek|深度求索' }).Count -gt 0) {
       throw "DeepSeek login appeared in branded executable: $($seen -join ' | ')"
     }
-    if (@($seen | Where-Object { $_ -like '*贸号DSH*Mock*登录*' }).Count -gt 0) {
+    if (@($seen | Where-Object { ($_ -like '*贸号DSH*演示账号登录*' -or $_ -like '*贸号DSH*Mock*登录*') }).Count -gt 0) {
       Write-Host "PASS: actual installed Windows client visibly opens 贸号 Mock login: $($seen -join ' | ')"
       return
     }
