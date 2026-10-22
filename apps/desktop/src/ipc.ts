@@ -3,7 +3,18 @@
 import type { DesktopKeyboardApi, DesktopShortcutsApi } from '@deepseek-ai/dsh-client-shortcuts/protocol'
 import type { IpcMainInvokeEvent } from 'electron'
 import type { DesktopBrowserBridge } from '@deepseek-ai/dsh-client-ui-sidebar-browser/types'
-import type { MouseBridgeEvent, MouseBridgeStatus } from './umouse-bridge.ts'
+/** Shared native-mouse contract lives in IPC so the browser cannot import host-only modules. */
+export type MouseBridgeEvent =
+  | { kind: 'ready'; version: string }
+  | { kind: 'connected' | 'disconnected'; deviceId: string; mode: 0 | 1 }
+  | { kind: 'message'; deviceId: string; event: Record<string, unknown> }
+  | { kind: 'audio'; deviceId: string; format: 'pcm_s16le'; sampleRate: 16000; data: string }
+
+export interface MouseBridgeStatus {
+  readonly phase: 'unavailable' | 'starting' | 'ready' | 'error' | 'stopped'
+  readonly version?: string
+  readonly connected: number
+}
 
 /** IPC channel names kept private to the desktop application bundle. */
 export const DESKTOP_IPC = {
