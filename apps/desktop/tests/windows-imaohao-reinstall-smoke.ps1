@@ -30,6 +30,13 @@ try {
         })
         throw "Default-path first installation missing $appExe. Probes: $($diagnosis -join ' | ')"
     }
+    $sdk = Join-Path $installPath 'resources\umouse-sdk\umouse-bridge.exe'
+    if (-not (Test-Path -LiteralPath $sdk)) { throw "Missing installed uMouse SDK bridge $sdk" }
+    $version = (& $sdk --version | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $version -notmatch '"version":"0\.4\.20"') {
+        throw "Installed uMouse SDK cannot load vendor DLL: $version"
+    }
+    Write-Host "PASS: installed SoniCloud uMouse SDK DLL ABI 0.4.20"
     New-Item -ItemType Directory -Path $sentinelRoot -Force | Out-Null
     Set-Content -LiteralPath $sentinel -Value 'KEEP: user data survives in-place upgrade' -Encoding UTF8
     Write-Host "PASS: first Windows install to $installPath"
