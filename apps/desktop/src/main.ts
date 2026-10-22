@@ -347,6 +347,7 @@ async function main(): Promise<void> {
   let startup: Promise<void> | undefined
   let workspaceRecovery: Promise<void> | undefined
   let mainWindow: BrowserWindow | undefined
+  let relabelMouseTray: (() => void) | undefined
   // Native uMouse SDK lives in its own process; only the branded Windows
   // build starts it. Electron remains usable if the hardware or DLL fails.
   const mouseBridge = new MouseBridge(
@@ -361,6 +362,7 @@ async function main(): Promise<void> {
       }
     },
     (status) => {
+      relabelMouseTray?.()
       if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send(DESKTOP_IPC.mouseStatusChanged, status)
       }
@@ -396,6 +398,7 @@ async function main(): Promise<void> {
   let mandatoryUI: DesktopMandatoryUpdateWindow | undefined
   let policyAuth: DesktopPolicyTestAuth | undefined
   let tray: DesktopTray | undefined
+  relabelMouseTray = () => { tray?.relabel() }
   /**
    * The operating system is ending the session: the quit skips its confirmation. Windows sets it
    * on the definitive session-end message. macOS sets it on the power-off notification, which
@@ -1078,6 +1081,7 @@ async function main(): Promise<void> {
     // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
     try {
       tray = new DesktopTray({ iconPath: trayIconPath, locale: currentDesktopLocale,
+        mouse: imaohaoDemo ? () => mouseBridge.snapshot() : undefined,
         open: () => { focusPrimaryWindow() }, quit: () => { app.quit() } })
     } catch (error) { console.warn('desktop tray: unavailable', error) }
   }
