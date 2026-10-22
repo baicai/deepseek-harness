@@ -15,6 +15,19 @@ function createProductApi(): DshDesktopProductApi {
     protocolVersion: 1,
     browser: createDesktopBrowserBridge(),
     deviceInfo: () => ipcRenderer.invoke(DESKTOP_IPC.deviceInfo) as Promise<string>,
+    mouse: {
+      status: () => ipcRenderer.invoke(DESKTOP_IPC.mouseStatus),
+      subscribe(listener) {
+        const handle = (_event: Electron.IpcRendererEvent, value: Parameters<typeof listener>[0]): void => { listener(value) }
+        ipcRenderer.on(DESKTOP_IPC.mouseEvent, handle)
+        return () => { ipcRenderer.off(DESKTOP_IPC.mouseEvent, handle) }
+      },
+      subscribeStatus(listener) {
+        const handle = (_event: Electron.IpcRendererEvent, value: Parameters<typeof listener>[0]): void => { listener(value) }
+        ipcRenderer.on(DESKTOP_IPC.mouseStatusChanged, handle)
+        return () => { ipcRenderer.off(DESKTOP_IPC.mouseStatusChanged, handle) }
+      },
+    },
     keyboard: {
       closeWindow: revision => ipcRenderer.invoke(DESKTOP_IPC.shortcutsCloseWindow, revision) as Promise<void>,
       subscribe: (listener) => {
