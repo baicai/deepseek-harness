@@ -14,13 +14,14 @@ export interface MouseBridgeStatus {
   readonly phase: 'unavailable' | 'starting' | 'ready' | 'error' | 'stopped'
   readonly version?: string
   readonly connected: number
+  readonly devices: readonly { readonly deviceId: string; readonly mode: 0 | 1 }[]
 }
 
 /** Owns process lifetime and forwards sanitized, bounded events to a trusted renderer. */
 export class MouseBridge {
   private child: ChildProcessWithoutNullStreams | undefined
-  private readonly devices = new Set<string>()
-  private status: MouseBridgeStatus = { phase: 'unavailable', connected: 0 }
+  private readonly devices = new Map<string, 0 | 1>()
+  private status: MouseBridgeStatus = { phase: 'unavailable', connected: 0, devices: [] }
   private stopped = false
   constructor(
     private readonly directory: string,
@@ -28,9 +29,11 @@ export class MouseBridge {
     private readonly onEvent: (event: MouseBridgeEvent) => void,
     private readonly onStatus: (state: MouseBridgeStatus) => void,
   ) {}
-  snapshot(): MouseBridgeStatus { return { ...this.status } }
+  snapshot(): MouseBridgeStatus { return { ...this.status, devices: this.status.devices.map(device => ({ ...device })) } }
   private update(phase: MouseBridgeStatus['phase'], version?: string): void {
-    this.status = { phase, connected: this.devices.size, ...(version === undefined ? {} : { version }) }
+    this.status = { phase, connected: this.devices.size,
+      devices: [...this.devices].map(([deviceId, mode]) => ({ deviceId, mode })),
+      ...(version === undefined ? {} : { version }) }
     this.onStatus(this.snapshot())
   }
   start(audioEnabled = false): void {
@@ -82,7 +85,7 @@ export class MouseBridge {
     }
     if (typeof item.deviceId !== 'string' || item.deviceId.length > 128) return
     if ((item.kind === 'connected' || item.kind === 'disconnected') && (item.mode === 0 || item.mode === 1)) {
-      if (item.kind === 'connected') this.devices.add(item.deviceId)
+      if (item.kind === 'connected') this.devices.set(item.deviceId, item.mode)
       else this.devices.delete(item.deviceId)
       this.update('ready', this.status.version)
       this.onEvent({ kind: item.kind, deviceId: item.deviceId, mode: item.mode })
