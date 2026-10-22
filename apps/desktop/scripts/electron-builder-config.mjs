@@ -110,6 +110,7 @@ export function createElectronBuilderConfig(
     protocols: [{ name: maohaoBranding ? '贸号DSH' : 'DeepSeek Harness', schemes: [maohaoBranding ? 'imaohao-dsh' : 'dsh'] }],
     extraMetadata: {
       dshDesktopAppId: appId,
+      ...(maohaoBranding ? { productName: '贸号DSH', imaohaoDesktopEdition: 'mock-v2' } : {}),
       dshDesktopUpdateChannel: update?.channel ?? 'nightly',
       ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
       ...buildVersion === productVersion ? {} : { version: buildVersion },
