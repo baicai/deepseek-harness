@@ -37,6 +37,23 @@ try {
         throw "Installed uMouse SDK cannot load vendor DLL: $version"
     }
     Write-Host "PASS: installed SoniCloud uMouse SDK DLL ABI 0.4.20"
+    # Verify the *actual installed Electron exe*, not the electron-builder config.
+    # Prior release silently loaded DeepSeek welcome when Electron's app.name did
+    # not match the NSIS productName; a file-existence smoke missed the regression.
+    $brandFile = Join-Path $env:TEMP 'imaohao-installed-edition-check.json'
+    Remove-Item -LiteralPath $brandFile -Force -ErrorAction SilentlyContinue
+    $probe = Start-Process -FilePath $appExe -ArgumentList "--imaohao-brand-check=$brandFile" -Wait -PassThru
+    if ($probe.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $brandFile)) {
+        throw "Installed executable did not activate iMaoHao edition (exit=$($probe.ExitCode))"
+    }
+    $edition = Get-Content -LiteralPath $brandFile -Raw | ConvertFrom-Json
+    if ($edition.edition -ne 'mock-v2' -or $edition.name -ne '贸号DSH'
+        -or $edition.gatewayMode -ne 'imaohao'
+        -or $edition.userData -ne (Join-Path $env:APPDATA '贸号DSH')) {
+        throw "Installed app is not branded at runtime: $($edition | ConvertTo-Json -Compress)"
+    }
+    Remove-Item -LiteralPath $brandFile -Force
+    Write-Host "PASS: installed Electron runtime activates 贸号 Mock login edition and isolated userData"
     New-Item -ItemType Directory -Path $sentinelRoot -Force | Out-Null
     Set-Content -LiteralPath $sentinel -Value 'KEEP: user data survives in-place upgrade' -Encoding UTF8
     Write-Host "PASS: first Windows install to $installPath"
