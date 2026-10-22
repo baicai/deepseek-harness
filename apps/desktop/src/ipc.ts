@@ -3,6 +3,7 @@
 import type { DesktopKeyboardApi, DesktopShortcutsApi } from '@deepseek-ai/dsh-client-shortcuts/protocol'
 import type { IpcMainInvokeEvent } from 'electron'
 import type { DesktopBrowserBridge } from '@deepseek-ai/dsh-client-ui-sidebar-browser/types'
+import type { MouseBridgeEvent, MouseBridgeStatus } from './umouse-bridge.ts'
 
 /** IPC channel names kept private to the desktop application bundle. */
 export const DESKTOP_IPC = {
@@ -22,6 +23,9 @@ export const DESKTOP_IPC = {
   browserOpenRequested: 'dsh-desktop:browser-open-requested',
   directoryPick: 'dsh-desktop:directory-pick',
   deviceInfo: 'dsh-desktop:device-info',
+  mouseStatus: 'dsh-desktop:mouse-status',
+  mouseStatusChanged: 'dsh-desktop:mouse-status-changed',
+  mouseEvent: 'dsh-desktop:mouse-event',
   localeBootstrap: 'dsh-desktop:locale-bootstrap',
   localeChanged: 'dsh-desktop:locale-changed',
   updatesStatus: 'dsh-desktop:updates-status',
@@ -79,6 +83,12 @@ export interface DshDesktopProductApi {
    * @returns `name=value` fields separated by `; `, with no hostname, user name, or serial number.
    */
   deviceInfo(): Promise<string>
+  /** Optional iMaoHao-branded smart mouse, never available in unbranded DSH. */
+  readonly mouse: {
+    status(): Promise<MouseBridgeStatus>
+    subscribe(listener: (event: MouseBridgeEvent) => void): () => void
+    subscribeStatus(listener: (status: MouseBridgeStatus) => void): () => void
+  }
   readonly updates: {
     status(): Promise<DesktopUpdatePresentation>
     open(): Promise<void>
