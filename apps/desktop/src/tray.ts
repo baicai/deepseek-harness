@@ -15,6 +15,7 @@ export interface DesktopTrayOptions {
   readonly quit: () => void
   /** Optional branded uMouse SDK state, hidden from upstream DSH. */
   readonly mouse?: () => MouseBridgeStatus
+  readonly openMouse?: () => void
 }
 
 /** Tray icon present for the whole run, not only while the window is hidden. */
@@ -44,6 +45,7 @@ export class DesktopTray {
     const template: MenuItemConstructorOptions[] = [
       { label: messages.openApplication, click: () => { this.options.open() } },
       ...(mouseLabel === undefined ? [] : [{ label: mouseLabel, enabled: false }]),
+      ...(this.options.openMouse === undefined ? [] : [{ label: '声云智能鼠标 · 设备管理', click: () => { this.options.openMouse?.() } }]),
       { type: 'separator' },
       { label: messages.quitApplication, click: () => { this.options.quit() } },
     ]
