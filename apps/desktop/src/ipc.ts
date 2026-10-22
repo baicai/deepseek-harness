@@ -14,6 +14,7 @@ export interface MouseBridgeStatus {
   readonly phase: 'unavailable' | 'starting' | 'ready' | 'error' | 'stopped'
   readonly version?: string
   readonly connected: number
+  readonly devices: readonly { readonly deviceId: string; readonly mode: 0 | 1 }[]
 }
 
 /** IPC channel names kept private to the desktop application bundle. */
