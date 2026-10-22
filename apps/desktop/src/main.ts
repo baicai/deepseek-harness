@@ -3,7 +3,7 @@ import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
 /** Electron shell: desktop project ownership, custom protocol, windows, and lifecycle. */
 
 import { readFile, writeFile } from 'node:fs/promises'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -1556,7 +1556,15 @@ async function main(): Promise<void> {
 const brandProbe = process.argv.find(argument => argument.startsWith('--imaohao-brand-check='))
 if (brandProbe !== undefined) {
   const output = brandProbe.slice('--imaohao-brand-check='.length)
-  if (!isMaoHaoEdition || app.name !== '贸号DSH' || output.length === 0) {
+  const panelFiles = [
+    join(app.getAppPath(), 'renderer', 'imaohao-mouse.html'),
+    join(app.getAppPath(), 'renderer', 'imaohao-mouse.js'),
+    join(app.getAppPath(), 'renderer', 'imaohao-mouse.css'),
+    join(app.getAppPath(), 'lib', 'preload-imaohao-mouse.cjs'),
+    join(process.resourcesPath, 'umouse-sdk', 'umouse-bridge.exe'),
+    join(process.resourcesPath, 'umouse-sdk', 'uMouseSdk.dll'),
+  ]
+  if (!isMaoHaoEdition || app.name !== '贸号DSH' || output.length === 0 || panelFiles.some(file => !existsSync(file))) {
     console.error('iMaoHao brand check failed: packaged edition is not active')
     app.exit(12)
   } else {
@@ -1565,6 +1573,7 @@ if (brandProbe !== undefined) {
       name: app.name,
       userData: app.getPath('userData'),
       gatewayMode: 'imaohao',
+      uMousePanel: true,
     }), 'utf8')
     app.exit(0)
   }
