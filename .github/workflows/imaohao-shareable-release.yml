@@ -44,7 +44,7 @@ jobs:
           run_json=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$build_run")
           echo "$run_json" | jq -e --arg commit "$source_commit" '
             .status == "completed" and .conclusion == "success"
-            and any(.pull_requests[]?; .head.sha == $commit)
+            and .head_sha == $commit
           ' >/dev/null
           artifact_json=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$build_run/artifacts")
           artifact_name=$(echo "$artifact_json" | jq -r '
