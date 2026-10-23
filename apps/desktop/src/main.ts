@@ -873,6 +873,11 @@ async function main(): Promise<void> {
       || new URL(event.senderFrame.url).origin !== new URL(applicationUrl).origin) {
       throw new Error('desktop welcome: rejected locale request from an unowned frame')
     }
+    // iMaoHao Mock starts a standalone account gateway, not the upstream DeepSeek
+    // welcome backend. The browser locale plugin still needs a valid native
+    // bootstrap to register its `locale` service. Returning no preference keeps
+    // system-language selection without contacting any DeepSeek API.
+    if (imaohaoDemo) return { languages: systemLanguages, preference: null }
     if (welcomeBackend === undefined) throw new Error('desktop welcome: backend unavailable')
     return { languages: systemLanguages, preference: await welcomeBackend.readLocalePreference() }
   })
