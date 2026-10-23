@@ -47,9 +47,11 @@ try {
         throw "Installed executable did not activate iMaoHao edition (exit=$($probe.ExitCode))"
     }
     $edition = Get-Content -LiteralPath $brandFile -Raw | ConvertFrom-Json
-    if ($edition.edition -ne 'mock-v2' -or $edition.name -ne '贸号DSH'
-        -or $edition.gatewayMode -ne 'imaohao' -or $edition.uMousePanel -ne $true
-        -or $edition.userData -ne (Join-Path $env:APPDATA '贸号DSH')) {
+    if ($edition.edition -ne 'mock-v2' -or
+        $edition.name -ne '贸号DSH' -or
+        $edition.gatewayMode -ne 'imaohao' -or
+        $edition.uMousePanel -ne $true -or
+        $edition.userData -ne (Join-Path $env:APPDATA '贸号DSH')) {
         throw "Installed app is not branded at runtime: $($edition | ConvertTo-Json -Compress)"
     }
     Remove-Item -LiteralPath $brandFile -Force
