@@ -564,15 +564,17 @@ export async function apply(ctx: ClientContext): Promise<void> {
   const bridge = (globalThis as { __DSH_LOCALE__?: LocaleBridge }).__DSH_LOCALE__
   let bootstrap: LocaleBootstrap | undefined
   if (bridge !== undefined) {
-    let value: unknown
     try {
-      value = await bridge.read()
+      const value = await bridge.read()
+      if (ctx.fiber.uid === null) return
+      bootstrap = parseLocaleBootstrap(value)
     } catch (error) {
       if (ctx.fiber.uid === null) return
-      throw error
+      // The shell language bridge is a preference source, not a prerequisite
+      // for the entire application. If its IPC fails during startup, preserve
+      // all client services with browser language selection as a fallback.
+      console.error('locale: native initialization failed; using browser fallback', error)
     }
-    if (ctx.fiber.uid === null) return
-    bootstrap = parseLocaleBootstrap(value)
   }
   const host = ctx.configForms.get<LocaleSettings>(LOCALE_SETTINGS_NAMESPACE)
   const locale = new LocaleRuntime(ctx, host, bootstrap)
@@ -580,8 +582,12 @@ export async function apply(ctx: ClientContext): Promise<void> {
   locale.register(SETTINGS_NS, { zh: settingsZh, en: settingsEn })
   ctx.provide('locale', locale)
   if (bridge !== undefined) {
-    ctx.on('locale/change', (snapshot) => { bridge.onChange(snapshot.active) })
-    bridge.onChange(locale.getSnapshot().active)
+    ctx.on('locale/change', (snapshot) => {
+      try { bridge.onChange(snapshot.active) }
+      catch (error) { console.error('locale: native onChange failed', error) }
+    })
+    try { bridge.onChange(locale.getSnapshot().active) }
+    catch (error) { console.error('locale: initial native onChange failed', error) }
   }
   // The service IS the LocaleFace (bind + getSnapshot/subscribe): install it
   // so the render machinery can synthesize the `t` standard seat.
