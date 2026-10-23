@@ -29,3 +29,5 @@
   ./apps/desktop/scripts/prepare-imaohao-mouse-sdk.ps1 -OutputDirectory apps/desktop/.desktop-build/targets/win-x64/umouse-sdk
 
 随后运行 pnpm run package:desktop:win:x64:unsigned。Windows 安装程序中 resources/umouse-sdk/ 应包含 umouse-bridge.exe、uMouseSdk.dll、依赖及许可文件。
+
+<!-- Trigger uMouse Windows build -->
