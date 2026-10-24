@@ -561,6 +561,18 @@ export const inject = ['slots', 'remote', 'configForms']
  * @returns resolves after native language initialization and plugin registration.
  */
 export async function apply(ctx: ClientContext): Promise<void> {
+  try {
+    await activateLocale(ctx)
+  } catch (error) {
+    // Preserve the *first* exception and its stack. Without this, Cordis only
+    // reports "locale: failed" and dozens of unrelated dependants as pending.
+    // This message is collected by the Electron renderer crash diagnostics.
+    console.error('dsh-client-locale: activation failed:', error)
+    throw error
+  }
+}
+
+async function activateLocale(ctx: ClientContext): Promise<void> {
   const bridge = (globalThis as { __DSH_LOCALE__?: LocaleBridge }).__DSH_LOCALE__
   let bootstrap: LocaleBootstrap | undefined
   if (bridge !== undefined) {
