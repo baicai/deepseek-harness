@@ -57,15 +57,34 @@ export class ModelCatalogDirectory {
       if (!response.ok) {
         throw new Error(`${response.error.code}: ${response.error.message}`)
       }
+      // Downstream Windows demonstration: the selector must never silently
+      // fall back to DeepSeek account models; only live Host-registered iMaoHao
+      // models may appear. Missing registration stays visible as an error.
+      const isMaoHaoDesktop = (globalThis as typeof globalThis & {
+        dshDesktop?: { protocolVersion?: number }
+      }).dshDesktop?.protocolVersion === 1
+      const value = isMaoHaoDesktop ? {
+        ...response.value,
+        groups: response.value.groups.filter(group => group.id === 'imaohao'),
+        routableProviders: response.value.routableProviders.filter(id => id === 'imaohao'),
+        default: { provider: 'imaohao', model: 'default' },
+      } : response.value
+      if (isMaoHaoDesktop && (value.groups.length !== 1 || value.groups[0]?.models.length !== 2)) {
+        const details = {
+          returnedProviders: response.value.groups.map(group => group.id),
+          failures: response.value.failures.filter(failure => failure.id === 'imaohao'),
+        }
+        throw new Error('贸号模型目录与 Desktop Host 不一致：' + JSON.stringify(details))
+      }
       if (generation === this.generation) {
-        for (const group of response.value.groups) {
+        for (const group of value.groups) {
           for (const model of group.models) {
             this.reasoning.set(JSON.stringify([group.id, model.id]), model.reasoning)
           }
         }
-        this.store.set({ value: response.value, status: 'ready', error: null })
+        this.store.set({ value, status: 'ready', error: null })
       }
-      return response.value
+      return value
     }).catch((error: unknown) => {
       if (generation === this.generation) {
         this.store.update((draft) => {

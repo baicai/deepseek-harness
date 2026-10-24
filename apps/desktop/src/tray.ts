@@ -1,6 +1,7 @@
 /** Windows system tray: the always-present way back to a hidden window and the explicit quit entry. */
 
-import { Menu, nativeImage, Tray } from 'electron'
+import { Menu, nativeImage, Tray, type MenuItemConstructorOptions } from 'electron'
+import type { MouseBridgeStatus } from './umouse-bridge.ts'
 import type { DesktopLocale } from './locale.ts'
 
 /** Main-process actions the tray triggers; both run the same paths as the window and application menu. */
@@ -12,6 +13,9 @@ export interface DesktopTrayOptions {
   readonly open: () => void
   /** Request quit through the same confirmation as every other quit entry. */
   readonly quit: () => void
+  /** Optional branded uMouse SDK state, hidden from upstream DSH. */
+  readonly mouse?: () => MouseBridgeStatus
+  readonly openMouse?: () => void
 }
 
 /** Tray icon present for the whole run, not only while the window is hidden. */
@@ -32,11 +36,20 @@ export class DesktopTray {
     if (tray === undefined) return
     const { messages } = this.options.locale()
     tray.setToolTip(messages.aboutProduct)
-    tray.setContextMenu(Menu.buildFromTemplate([
+    const mouse = this.options.mouse?.()
+    const mouseLabel = mouse === undefined ? undefined
+      : mouse.phase === 'ready' ? `智能鼠标 · 已连接 ${mouse.connected} 台 · SDK ${mouse.version ?? '未知'}`
+        : mouse.phase === 'starting' ? '智能鼠标 · 正在启动'
+          : mouse.phase === 'error' ? '智能鼠标 · SDK 异常'
+            : '智能鼠标 · 未连接'
+    const template: MenuItemConstructorOptions[] = [
       { label: messages.openApplication, click: () => { this.options.open() } },
+      ...(mouseLabel === undefined ? [] : [{ label: mouseLabel, enabled: false }]),
+      ...(this.options.openMouse === undefined ? [] : [{ label: '声云智能鼠标 · 设备管理', click: () => { this.options.openMouse?.() } }]),
       { type: 'separator' },
       { label: messages.quitApplication, click: () => { this.options.quit() } },
-    ]))
+    ]
+    tray.setContextMenu(Menu.buildFromTemplate(template))
   }
 
   /** Remove the icon; called once the quit is confirmed so no dead icon outlives the process. */

@@ -296,6 +296,21 @@ export class PiAiAdapter extends LlmAdapter {
     return Promise.resolve().then(async () => {
       const snapshot = this.current()
       const profile = this.profileOf(snapshot, provider)
+      // Branded local mock: advertise model entries in the genuine Host catalog
+      // without requiring a real API key. Credential resolution for *requests*
+      // is unchanged and still fails with MISSING_CREDENTIAL. This exception
+      // is limited to the development-only iMaoHao route; production providers
+      // continue to require credentials before their models are visible.
+      const mockCatalogOnly = process.env.IMAOHAO_BRANDING_TEST === '1'
+        && provider === 'imaohao-demo'
+        && profile.apiKeyEnv === 'IMAOHAO_MODEL_API_KEY'
+        && profile.baseURL === 'http://127.0.0.1:39401/v1'
+      if (mockCatalogOnly) return snapshot.models.getModels(provider).map(model => ({
+        provider,
+        id: model.id,
+        name: model.name,
+        inputModalities: [...model.input],
+      }))
       try { await this.config.resolveApiKey(provider, profile) }
       catch (error) {
         // A route whose named key does not resolve cannot serve a request, so it offers no models until the key is stored.

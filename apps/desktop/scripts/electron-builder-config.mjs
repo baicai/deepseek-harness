@@ -1,6 +1,6 @@
 import { officePackageDirectories } from '../../../scripts/libreoffice-packages.mjs'
 import { X509Certificate } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -51,6 +51,7 @@ export function createElectronBuilderConfig(
   preparedRuntimeVersion = undefined,
 ) {
   const appId = resolveDesktopAppId(env)
+  const maohaoBranding = env.IMAOHAO_BRANDING_TEST === '1'
   const targetPlatform = env.DSH_DESKTOP_TARGET_PLATFORM
   const resolvedPlatform = targetPlatform ?? hostPlatform
   const resolvedArch = env.DSH_DESKTOP_TARGET_ARCH ?? hostArch
@@ -70,6 +71,7 @@ export function createElectronBuilderConfig(
   const macOSSigning = packagesMacOS && !unsigned ? resolveMacOSSigningEnvironment(env) : undefined
   if (packagesMacOS && !unsigned && !skipNotarization) resolveMacOSNotarizationEnvironment(env)
   const buildPaths = desktopTargetBuildPaths(resolveDesktopBuildTarget(env, hostPlatform, hostArch))
+  const mouseSdkDirectory = join(buildPaths.root, 'umouse-sdk')
   const output = desktopArtifactOutput(buildPaths, { unsigned, skipNotarization })
   let primaryRuntimeDestination
   let dshDestination
@@ -105,17 +107,18 @@ export function createElectronBuilderConfig(
   const packaged = resolveDesktopBuildCommit(env)
   return {
     appId,
-    protocols: [{ name: 'DeepSeek Harness', schemes: ['dsh'] }],
+    protocols: [{ name: maohaoBranding ? '贸号DSH' : 'DeepSeek Harness', schemes: [maohaoBranding ? 'imaohao-dsh' : 'dsh'] }],
     extraMetadata: {
       dshDesktopAppId: appId,
+      ...(maohaoBranding ? { productName: '贸号DSH', imaohaoDesktopEdition: 'mock-v2' } : {}),
       dshDesktopUpdateChannel: update?.channel ?? 'nightly',
       ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
       ...buildVersion === productVersion ? {} : { version: buildVersion },
       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
     },
-    productName: 'DeepSeek Harness',
+    productName: maohaoBranding ? '贸号DSH' : 'DeepSeek Harness',
     // Unsigned builds carry their own suffix so a shared file can never pass for a release artifact.
-    artifactName: `deepseek-harness-\${version}-\${os}-\${arch}${output.suffix}.\${ext}`,
+    artifactName: `${maohaoBranding ? 'iMaoHao-dsh' : 'deepseek-harness'}-\${version}-\${os}-\${arch}${output.suffix}.\${ext}`,
     directories: { output: output.directory },
     asar: true,
     electronDist: buildPaths.electron,
@@ -137,6 +140,8 @@ export function createElectronBuilderConfig(
       'lib/main.js',
       'lib/welcome/**/*',
       'lib/preload-app.cjs',
+      'lib/preload-imaohao.cjs',
+      'lib/preload-imaohao-mouse.cjs',
       'lib/preload-mandatory.cjs',
       'lib/preload-platform-account.cjs',
       'lib/preload-update-dialog.cjs',
@@ -155,6 +160,7 @@ export function createElectronBuilderConfig(
       { from: fileURLToPath(new URL('../resources/icon-windows.png', import.meta.url)), to: 'icon.png' },
       // Windows tray bitmaps; macOS keeps the Dock and ships no menu bar icon.
       ...(packagesWindows ? [{ from: fileURLToPath(new URL('../resources/tray-windows.ico', import.meta.url)), to: 'tray.ico' }] : []),
+      ...(packagesWindows && maohaoBranding ? [{ from: mouseSdkDirectory, to: 'umouse-sdk' }] : []),
     ],
     mac: {
       icon: fileURLToPath(new URL('../resources/icon-macos.png', import.meta.url)),
@@ -165,7 +171,7 @@ export function createElectronBuilderConfig(
       identity: unsigned ? '-' : macOSSigning?.signingIdentity,
       forceCodeSigning: !unsigned,
       hardenedRuntime: true,
-      extendInfo: { NSMicrophoneUsageDescription: 'DeepSeek Harness uses your microphone to transcribe speech into message drafts.' },
+      extendInfo: { NSMicrophoneUsageDescription: `${maohaoBranding ? '贸号DSH' : 'DeepSeek Harness'} uses your microphone to transcribe speech into message drafts.` },
       entitlements: fileURLToPath(new URL('./macos-entitlements.plist', import.meta.url)),
       entitlementsInherit: fileURLToPath(new URL('./macos-entitlements.plist', import.meta.url)),
       // Prepared runtime files retain their signatures; PAK resources are sealed by their enclosing bundle.
@@ -179,6 +185,10 @@ export function createElectronBuilderConfig(
       writeUpdateInfo: false,
     },
     beforePack: async context => {
+      if (packagesWindows && maohaoBranding && (!existsSync(join(mouseSdkDirectory, 'umouse-bridge.exe'))
+        || !existsSync(join(mouseSdkDirectory, 'uMouseSdk.dll')))) {
+        throw new Error('Branded Windows package: uMouse SDK bridge missing; run prepare-imaohao-mouse-sdk.ps1')
+      }
       const office = await officePackageDirectories(buildPaths.dsh, { platform: resolvedPlatform, arch: resolvedArch })
       const patterns = office.map(directory => `**/${relative(buildPaths.dsh, directory).split(sep).join('/')}/**/*`)
       const existing = context.packager.config.asarUnpack ?? []
@@ -195,6 +205,10 @@ export function createElectronBuilderConfig(
     afterPack: async context => {
       const { verifyDesktopRuntime } = await import('../lib/types/runtime-tree.js')
       const resourcesDir = context.packager.getResourcesDir(context.appOutDir)
+      if (packagesWindows && maohaoBranding && (!existsSync(join(resourcesDir, 'umouse-sdk', 'umouse-bridge.exe'))
+        || !existsSync(join(resourcesDir, 'umouse-sdk', 'uMouseSdk.dll')))) {
+        throw new Error('Branded Windows package: uMouse SDK helper or vendor DLL omitted from installer payload')
+      }
       if (resolvedPlatform === 'darwin' && update !== undefined) {
         await writeMacOSAppUpdateConfig(resourcesDir, resolveMacOSAppUpdateFeed(context.packager.config.publish),
           context.packager.appInfo.updaterCacheDirName)
@@ -254,8 +268,8 @@ export function createElectronBuilderConfig(
       uninstallerSidebar: join(buildPaths.root, 'installer-ui', 'uninstaller-sidebar.bmp'),
       include: fileURLToPath(new URL('./installer.nsh', import.meta.url)),
       oneClick: false,
-      perMachine: false,
-      allowElevation: false,
+      perMachine: maohaoBranding,
+      allowElevation: maohaoBranding,
       allowToChangeInstallationDirectory: false,
       installerLanguages: ['en_US', 'zh_CN'],
       differentialPackage: true,

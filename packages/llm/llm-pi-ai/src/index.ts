@@ -168,7 +168,28 @@ export function apply(ctx: Context, config: Config): void {
   const profiles = (): ReadonlyMap<string, ResolvedPiAiProviderProfile> => {
     const raw = config.providers.get()
     if (raw === lastRaw && memoized !== undefined) return memoized
-    const next = resolveProfiles(structuredClone(raw) as import('./config.ts').Options['providers'], 'deferred')
+    const configured = (structuredClone(raw) ?? {}) as NonNullable<import('./config.ts').Options['providers']>
+    // A branded Desktop builds its real model route from the endpoint selected
+    // by the Host before profile startup. Do not let a persisted empty models
+    // setting silently remove the route from the Session model catalog.
+    if (process.env.IMAOHAO_BRANDING_TEST === '1') {
+      delete configured['imaohao-demo']
+      const baseURL = process.env.IMAOHAO_GATEWAY_BASE_URL
+      if (baseURL === undefined || baseURL.length === 0) {
+        throw new LlmError('iMaoHao desktop model gateway has not been configured', 'MISSING_CREDENTIAL')
+      }
+      configured.imaohao = {
+        displayName: '贸号模型',
+        api: 'openai-completions',
+        baseURL,
+        apiKeyEnv: 'IMAOHAO_GATEWAY_API_KEY',
+        models: [
+          { id: 'default', name: '默认', contextWindow: 32768, maxTokens: 4096 },
+          { id: 'iMaoHao-V6.1-Astra', name: 'iMaoHao-V6.1-Astra', contextWindow: 32768, maxTokens: 4096 },
+        ],
+      }
+    }
+    const next = resolveProfiles(configured, 'deferred')
     lastRaw = raw
     memoized = next
     return next

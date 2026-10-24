@@ -30,6 +30,34 @@ ManifestDPIAware true
 !macroend
 
 !macro customInit
+  ; Branded Windows installer is per-machine because Program Files requires elevation.
+  ; Keep the registered per-machine path for upgrades. Never force LocalAppData.
+  !ifdef INSTALL_MODE_PER_ALL_USERS
+    ${If} "${APP_EXECUTABLE_FILENAME}" == "贸号DSH.exe"
+      ; electron-builder already called initMultiUser. The supported
+      ; GetDParameter macro recovers /D= even when the selected path contains
+      ; spaces. Do not attempt to infer user intent from $INSTDIR basename.
+      !insertmacro GetDParameter $R0
+      ${If} $R0 != ""
+        StrCpy $INSTDIR $R0
+      ${Else}
+        ; Prefer the same app-registry key that electron-builder writes.
+        ; Earlier iMaoHao builds used the uninstall-registry key instead.
+        ReadRegStr $2 HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation
+        ${If} $2 == ""
+          ReadRegStr $2 HKLM "${UNINSTALL_REGISTRY_KEY}" InstallLocation
+        ${EndIf}
+        ${If} $2 == ""
+          ReadRegStr $2 HKCU "${UNINSTALL_REGISTRY_KEY}" InstallLocation
+        ${EndIf}
+        ${If} $2 == ""
+          StrCpy $INSTDIR "$PROGRAMFILES64\iMaoHao\iMaoHao-DSH"
+        ${Else}
+          StrCpy $INSTDIR $2
+        ${EndIf}
+      ${EndIf}
+    ${EndIf}
+  !else
   ${If} ${isForAllUsers}
     MessageBox MB_OK|MB_ICONEXCLAMATION "$(INSTALLER_PER_USER)" /SD IDOK
     SetErrorLevel 2
@@ -44,6 +72,15 @@ ManifestDPIAware true
   !insertmacro setInstallModePerUser
   StrCpy $hasPerMachineInstallation 0
   StrCpy $hasPerUserInstallation 1
+  ; New branded installations must never inherit the @deepseek default path.
+  ; Keep the registered install path when updating an existing 贸号DSH copy.
+  ${If} "${APP_EXECUTABLE_FILENAME}" == "贸号DSH.exe"
+    ReadRegStr $2 HKCU "${UNINSTALL_REGISTRY_KEY}" InstallLocation
+    ${If} $2 == ""
+      StrCpy $INSTDIR "$LOCALAPPDATA\\Programs\\iMaoHao-dsh"
+    ${EndIf}
+  ${EndIf}
+  !endif
   StrCpy $InstallerPath $INSTDIR
   StrCpy $InstallerTheme "auto"
   ${GetParameters} $0

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
+<title>贸号DSH · 智能鼠标设备管理</title>
+<link rel="stylesheet" href="imaohao-mouse.css">
+<script defer src="imaohao-mouse.js"></script>
+</head><body>
+<header><div class="eyebrow">贸号 DSH · 智能设备</div><h1>声云智能鼠标</h1><p>uMouse SDK · Windows USB / BLE 接入验证</p></header>
+<main>
+  <section class="primary">
+    <div class="status-line"><span id="dot" class="dot"></span><strong id="state">正在读取 SDK 状态</strong></div>
+    <div class="stats"><div><span>SDK 版本</span><strong id="version">—</strong></div><div><span>已连接设备</span><strong id="count">0</strong></div></div>
+    <p id="hint">正在检测设备...</p>
+  </section>
+  <section><h2>已连接设备</h2><div id="devices" class="devices"><p class="empty">暂无设备</p></div></section>
+  <section><h2>最新硬件事件 <span id="event-count">0</span></h2>
+    <p class="desc">连接鼠标后，按下语音、AI、翻译或 M 键，此处显示 SDK 上报的真实事件。</p>
+    <ol id="events"><li class="empty">暂无硬件事件</li></ol>
+  </section>
+  <section class="guide"><h2>如何体验</h2><p>使用 USB 接收器连接声云鼠标，或先通过 Windows 蓝牙设置完成配对。设备上线后，此页自动刷新；按下 AI 键（Click）可唤起 DSH 工作区。</p></section>
+  <footer>本页直接读取 SDK 事件，不生成模拟连接数据。语音识别 / 翻译尚未接入。</footer>
+</main></body></html>

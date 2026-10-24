@@ -3,6 +3,7 @@ import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
 /** Electron shell: desktop project ownership, custom protocol, windows, and lifecycle. */
 
 import { readFile, writeFile } from 'node:fs/promises'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -61,6 +62,7 @@ import { DesktopUpdateOverlays } from './update-overlay.ts'
 import { DesktopQuitConfirmation } from './quit-confirmation.ts'
 import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
+import { MouseBridge } from './umouse-bridge.ts'
 
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => {}
@@ -77,6 +79,24 @@ let windowsLanguage: string | undefined
  * failure while tearing down a ready backend still reads as `running`.
  */
 let backendReady = false
+/** Runtime product identity is a bundled manifest marker, never an installer filename.
+ * Electron's app.name may differ from electron-builder productName; that previously
+ * silently activated the upstream DeepSeek login despite a branded installer.
+ */
+function readPackagedEdition(): boolean {
+  if (!app.isPackaged) return false
+  const manifest = JSON.parse(readFileSync(join(app.getAppPath(), 'package.json'), 'utf8')) as unknown
+  return typeof manifest === 'object' && manifest !== null
+    && 'imaohaoDesktopEdition' in manifest && manifest.imaohaoDesktopEdition === 'mock-v2'
+}
+const isMaoHaoEdition = readPackagedEdition()
+if (isMaoHaoEdition) {
+  app.setName('贸号DSH')
+  const userData = join(app.getPath('appData'), '贸号DSH')
+  mkdirSync(userData, { recursive: true })
+  app.setPath('userData', userData)
+  process.env.DSH_HOME = join(userData, 'harness-home')
+}
 /** Error-level console output of the primary window, attached to crash reports. */
 const rendererConsole = new RendererConsoleTail()
 
@@ -315,6 +335,8 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
 }
 
 async function main(): Promise<void> {
+  // This was previously based on app.name, which need not equal the NSIS productName.
+  const imaohaoDemo = isMaoHaoEdition
   const desktopSettings = readDesktopSettings(app.getPath('userData'))
   void pruneCrashReports(app.getPath('logs'))
   const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
@@ -343,7 +365,86 @@ async function main(): Promise<void> {
   let startup: Promise<void> | undefined
   let workspaceRecovery: Promise<void> | undefined
   let mainWindow: BrowserWindow | undefined
+  let mousePanelWindow: BrowserWindow | undefined
+  let relabelMouseTray: (() => void) | undefined
+  // Native uMouse SDK lives in its own process; only the branded Windows
+  // build starts it. Electron remains usable if the hardware or DLL fails.
+  const mouseBridge = new MouseBridge(
+    join(process.resourcesPath, 'umouse-sdk'), app.getPath('logs'),
+    (deviceEvent) => {
+      if (deviceEvent.kind === 'message' && deviceEvent.event.type === 'keyEvent'
+        && deviceEvent.event.key === 'ai' && deviceEvent.event.action === 'click') {
+        focusPrimaryWindow()
+      }
+      if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(DESKTOP_IPC.mouseEvent, deviceEvent)
+      }
+      if (mousePanelWindow !== undefined && !mousePanelWindow.isDestroyed() && deviceEvent.kind !== 'audio') {
+        mousePanelWindow.webContents.send(DESKTOP_IPC.mouseEvent, deviceEvent)
+      }
+    },
+    (status) => {
+      relabelMouseTray?.()
+      if (mainWindow !== undefined && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(DESKTOP_IPC.mouseStatusChanged, status)
+      }
+      if (mousePanelWindow !== undefined && !mousePanelWindow.isDestroyed()) {
+        mousePanelWindow.webContents.send(DESKTOP_IPC.mouseStatusChanged, status)
+      }
+    },
+  )
+  if (imaohaoDemo && process.platform === 'win32') {
+    // PCM leaves the helper only when explicitly opted in by the integrator.
+    mouseBridge.start(process.env.IMAOHAO_MOUSE_PCM_BRIDGE === '1')
+  }
+  app.on('will-quit', () => { mouseBridge.stop() })
+  let maohaoLoginWindow: BrowserWindow | undefined
+  /** Desktop-owned hardware panel uses the live DLL-backed device snapshot only. */
+  const showMousePanel = (): void => {
+    if (!imaohaoDemo || quitting || shuttingDown) return
+    if (mousePanelWindow !== undefined && !mousePanelWindow.isDestroyed()) {
+      mousePanelWindow.show()
+      mousePanelWindow.focus()
+      return
+    }
+    const window = new BrowserWindow({
+      title: '贸号DSH · 智能鼠标设备管理',
+      width: 565, height: 780, minWidth: 470, minHeight: 560,
+      backgroundColor: '#101821',
+      autoHideMenuBar: true,
+      show: false,
+      webPreferences: {
+        preload: fileURLToPath(new URL('./preload-imaohao-mouse.cjs', import.meta.url)),
+        nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true,
+      },
+    })
+    mousePanelWindow = window
+    window.on('closed', () => { if (mousePanelWindow === window) mousePanelWindow = undefined })
+    window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+    window.webContents.on('will-navigate', event => { event.preventDefault() })
+    window.once('ready-to-show', () => { if (!window.isDestroyed()) window.show() })
+    void window.loadFile(join(app.getAppPath(), 'renderer', 'imaohao-mouse.html'))
+      .catch((error: unknown) => { console.error('iMaoHao mouse panel load failed', error) })
+  }
+  ipcMain.handle('imaohao:mouse-panel-status', (event) => {
+    if (!imaohaoDemo || event.sender !== mousePanelWindow?.webContents
+      || event.senderFrame !== event.sender.mainFrame) throw new Error('untrusted mouse panel status request')
+    return mouseBridge.snapshot()
+  })
+  ipcMain.handle('imaohao:mouse-open', (event) => {
+    if (!imaohaoDemo || event.sender !== maohaoLoginWindow?.webContents
+      || event.senderFrame !== event.sender.mainFrame) throw new Error('untrusted mouse panel open request')
+    showMousePanel()
+  })
   let welcomeWindow: BrowserWindow | undefined
+  let maohaoGateway: { url: string; token: string } | undefined
+  let maohaoUserToken: string | undefined
+  app.on('will-quit', () => {
+    if (!imaohaoDemo || maohaoGateway === undefined || maohaoUserToken === undefined) return
+    void net.fetch(maohaoGateway.url + '/auth/logout', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + maohaoUserToken },
+    }).catch(() => undefined)
+  })
   let enteredWorkspace = false
   // NSIS passes --updated when it launches the application after installation.
   let raiseAfterUpdate = process.platform === 'win32' && process.argv.includes('--updated')
@@ -359,6 +460,7 @@ async function main(): Promise<void> {
   let mandatoryUI: DesktopMandatoryUpdateWindow | undefined
   let policyAuth: DesktopPolicyTestAuth | undefined
   let tray: DesktopTray | undefined
+  relabelMouseTray = () => { tray?.relabel() }
   /**
    * The operating system is ending the session: the quit skips its confirmation. Windows sets it
    * on the definitive session-end message. macOS sets it on the power-off notification, which
@@ -368,7 +470,7 @@ async function main(): Promise<void> {
   const isQuitting = (): boolean => quitting
   const currentMainWindow = (): BrowserWindow | undefined => mainWindow
   const ordinaryDialogs = new Set<AbortController>()
-  const currentDialogWindow = (): BrowserWindow | undefined => welcomeWindow ?? mainWindow
+  const currentDialogWindow = (): BrowserWindow | undefined => maohaoLoginWindow ?? welcomeWindow ?? mainWindow
   const updateOverlays = new DesktopUpdateOverlays()
   const updateDialog = new DesktopUpdateDialog(fileURLToPath(new URL('./preload-update-dialog.cjs', import.meta.url)), () => locale, updateOverlays)
   const isMandatory = (): boolean => mandatoryPolicy?.state.blocking === true
@@ -445,7 +547,8 @@ async function main(): Promise<void> {
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
-      hostInspectPort, { ...hostEnvironment, DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
+      hostInspectPort, { ...hostEnvironment, ...(imaohaoDemo
+        ? { DSH_HOME: process.env.DSH_HOME, IMAOHAO_BRANDING_TEST: '1', IMAOHAO_MOCK_V2: '1' } : {}), DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
       primaryRuntime,
       resources, (next) => { platformView.setSession(next) })
     return {
@@ -455,6 +558,13 @@ async function main(): Promise<void> {
         hostUrl = ready.url
         if (ready.injections === undefined) throw new Error('Desktop Host did not provide boot injections')
         injections = ready.injections
+        if (imaohaoDemo) {
+          // This branch does not call the DeepSeek account, token, or onboarding APIs.
+          // Mock model registration is verified in the actual Host before its ready IPC.
+          if (ready.mockGateway === undefined) throw new Error('iMaoHao mock gateway unavailable in Desktop Host')
+          maohaoGateway = ready.mockGateway
+          return
+        }
         welcomeBackend = await connectDesktopWelcome(ready.url, (input, init) => net.fetch(input, init), async () => (await session.defaultSession.cookies.get({ url: ready.url })).map(cookie => `${cookie.name}=${cookie.value}`).join('; '))
         analyticsEnabled = await welcomeBackend.analyticsEnabled().catch(() => false)
         if (!reportedLaunch) { reportedLaunch = true; void track('desktop_app_launch', {}) }
@@ -687,6 +797,14 @@ async function main(): Promise<void> {
     process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux', () => { refreshApplicationMenu() }, window => updateOverlays.input(window))
   app.on('will-quit', () => { shortcuts.dispose() })
 
+  ipcMain.handle(DESKTOP_IPC.mouseStatus, (event) => {
+    assertDesktopSender(event, ['app'])
+    if (event.sender !== mainWindow?.webContents || event.senderFrame !== event.sender.mainFrame) {
+      throw new Error('dsh desktop: untrusted mouse status requester')
+    }
+    return mouseBridge.snapshot()
+  })
+
   ipcMain.handle(DESKTOP_IPC.boot, async (event) => {
     assertDesktopSender(event, ['app'])
     await startup
@@ -755,6 +873,11 @@ async function main(): Promise<void> {
       || new URL(event.senderFrame.url).origin !== new URL(applicationUrl).origin) {
       throw new Error('desktop welcome: rejected locale request from an unowned frame')
     }
+    // iMaoHao Mock starts a standalone account gateway, not the upstream DeepSeek
+    // welcome backend. The browser locale plugin still needs a valid native
+    // bootstrap to register its `locale` service. Returning no preference keeps
+    // system-language selection without contacting any DeepSeek API.
+    if (imaohaoDemo) return { languages: systemLanguages, preference: null }
     if (welcomeBackend === undefined) throw new Error('desktop welcome: backend unavailable')
     return { languages: systemLanguages, preference: await welcomeBackend.readLocalePreference() }
   })
@@ -779,7 +902,7 @@ async function main(): Promise<void> {
   })
   ipcMain.handle(DESKTOP_IPC.onboardingApiKey, async (event) => {
     assertProductSender(event)
-    return (await readWelcomeState()).hasApiKey
+    return imaohaoDemo ? true : (await readWelcomeState()).hasApiKey
   })
   ipcMain.on(DESKTOP_IPC.onboardingActive, (event, active: unknown) => {
     const window = mainWindow
@@ -932,11 +1055,11 @@ async function main(): Promise<void> {
   const applicationIconPath = development ? join(app.getAppPath(), 'resources', 'icon-windows.png')
     : join(process.resourcesPath, 'icon.png')
   app.setAboutPanelOptions({
-    applicationName: 'DeepSeek Harness',
+    applicationName: app.name,
     applicationVersion: app.getVersion(),
     // The release has no separate build number; omit Electron's bundle version.
     version: '',
-    copyright: '',
+    copyright: app.name === '贸号DSH' ? '© 深圳贸号科技有限公司' : '',
     iconPath: applicationIconPath,
   })
   // A custom application menu replaces Electron's default menu, so macOS needs
@@ -951,6 +1074,30 @@ async function main(): Promise<void> {
       { role: 'hideOthers', label: currentDesktopLocale().messages.hideOtherApplications },
       { role: 'unhide', label: currentDesktopLocale().messages.showAllApplications }, { type: 'separator' }]
     : []
+  let supportQrWindow: BrowserWindow | undefined
+  const showSupportQr = (): void => {
+    if (supportQrWindow !== undefined && !supportQrWindow.isDestroyed()) {
+      supportQrWindow.show()
+      supportQrWindow.focus()
+      return
+    }
+    const qrWindow = new BrowserWindow({
+      title: '贸号DSH · 联系客服', width: 380, height: 490, resizable: false,
+      minimizable: true, maximizable: false, autoHideMenuBar: true,
+      webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+    })
+    supportQrWindow = qrWindow
+    qrWindow.on('closed', () => { if (supportQrWindow === qrWindow) supportQrWindow = undefined })
+    qrWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+    qrWindow.webContents.on('will-navigate', (event, url) => {
+      event.preventDefault()
+      if (url === 'https://www.imaohao.com/' || url === 'https://www.imaohao.com') {
+        void shell.openExternal('https://www.imaohao.com/').catch(console.error)
+      }
+    })
+    void qrWindow.loadFile(join(app.getAppPath(), 'renderer', 'imaohao-support.html'))
+      .catch((error: unknown) => { console.error('support QR failed', error) })
+  }
   const applicationItems = (): MenuItemConstructorOptions[] => [
     // Windows has no system About panel; Electron's fallback is a plain
     // message box, so the shell shows its own dimmed dialog instead.
@@ -958,6 +1105,14 @@ async function main(): Promise<void> {
       ? { label: currentDesktopLocale().messages.aboutMenu,
         click: () => { void showAbout().catch((error: unknown) => { console.error(error) }) } }
       : { label: currentDesktopLocale().messages.aboutMenu, role: 'about' },
+    ...(app.name === '贸号DSH' ? [
+      { label: currentDesktopLocale().messages.officialWebsiteMenu,
+        click: () => { void shell.openExternal('https://www.imaohao.com/').catch(console.error) } },
+      { label: currentDesktopLocale().messages.aboutWebsiteMenu,
+        click: () => { void shell.openExternal('https://www.imaohao.com/aboutus.html').catch(console.error) } },
+      { label: currentDesktopLocale().messages.supportWebsiteMenu,
+        click: () => { showSupportQr() } },
+    ] as MenuItemConstructorOptions[] : []),
     { type: 'separator' },
     { label: currentDesktopLocale().messages.checkUpdatesMenu, click: () => { void openUpdatePrompt(true) } },
     ...process.platform === 'darwin' || process.platform === 'win32'
@@ -993,6 +1148,7 @@ async function main(): Promise<void> {
     // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
     try {
       tray = new DesktopTray({ iconPath: trayIconPath, locale: currentDesktopLocale,
+        ...(imaohaoDemo ? { mouse: () => mouseBridge.snapshot(), openMouse: showMousePanel } : {}),
         open: () => { focusPrimaryWindow() }, quit: () => { app.quit() } })
     } catch (error) { console.warn('desktop tray: unavailable', error) }
   }
@@ -1125,6 +1281,11 @@ async function main(): Promise<void> {
     if (activate) window.show()
     else window.showInactive()
     enteredWorkspace = true
+    if (imaohaoDemo) showMousePanel()
+    if (maohaoLoginWindow !== undefined) {
+      maohaoLoginWindow.close()
+      maohaoLoginWindow = undefined
+    }
     if (welcomeWindow !== undefined) {
       welcomeWindow.close()
       window.webContents.send(DESKTOP_IPC.enterWorkspace)
@@ -1201,8 +1362,61 @@ async function main(): Promise<void> {
     })().finally(() => { openingWelcome = undefined })
     return openingWelcome
   }
+  const showMaoHaoLogin = async (): Promise<void> => {
+    if (quitting || enteredWorkspace) return
+    if (maohaoLoginWindow !== undefined && !maohaoLoginWindow.isDestroyed()) {
+      maohaoLoginWindow.show()
+      maohaoLoginWindow.focus()
+      return
+    }
+    if (maohaoGateway === undefined) throw new Error('iMaoHao demo gateway is not ready')
+    const loginWindow = new BrowserWindow({
+      width: 490, height: 745, minWidth: 490, minHeight: 745,
+      maximizable: false, resizable: false, autoHideMenuBar: true,
+      backgroundColor: '#151719', title: '贸号DSH · Mock 登录',
+      webPreferences: {
+        preload: fileURLToPath(new URL('./preload-imaohao.cjs', import.meta.url)),
+        nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true,
+      },
+    })
+    maohaoLoginWindow = loginWindow
+    ipcMain.removeHandler('imaohao:mock-login')
+    ipcMain.handle('imaohao:mock-login', async (event, username: unknown, password: unknown) => {
+      if (event.sender !== loginWindow.webContents || event.senderFrame !== loginWindow.webContents.mainFrame) {
+        throw new Error('mock auth: sender not authorized')
+      }
+      if (typeof username !== 'string' || typeof password !== 'string'
+        || username.length > 120 || password.length > 120) return { ok: false, message: '账号格式无效' }
+      const gateway = maohaoGateway
+      if (gateway === undefined) return { ok: false, message: '演示服务未启动' }
+      try {
+        const response = await net.fetch(gateway.url + '/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + gateway.token },
+          body: JSON.stringify({ username, password }),
+        })
+        if (!response.ok) return { ok: false, message: '演示账号或密码错误' }
+        const data = await response.json() as { access_token?: unknown }
+        if (typeof data.access_token !== 'string') return { ok: false, message: '演示会话无效' }
+        maohaoUserToken = data.access_token
+        await enterWorkspace()
+        return { ok: true }
+      } catch {
+        return { ok: false, message: '贸号演示接口未响应' }
+      }
+    })
+    loginWindow.on('closed', () => {
+      if (maohaoLoginWindow === loginWindow) maohaoLoginWindow = undefined
+      ipcMain.removeHandler('imaohao:mock-login')
+      if (!enteredWorkspace && !quitting) app.quit()
+    })
+    await loginWindow.loadFile(join(app.getAppPath(), 'renderer', 'imaohao-login.html'))
+    mainWindow?.hide()
+    loginWindow.show()
+  }
   const openInitialWindow = async (): Promise<void> => {
     if (quitting || recovery.active) return
+    if (imaohaoDemo) { await showMaoHaoLogin(); return }
     const state = await readWelcomeState()
     if (isQuitting() || backend.state.phase !== 'ready') return
     locale = resolveDesktopStartupLocale(state.localePreference, systemLanguages)
@@ -1219,7 +1433,7 @@ async function main(): Promise<void> {
   focusPrimaryWindow = () => {
     if (quitting) return
     if (isMandatory()) { mandatoryUI?.focus(); return }
-    const window = welcomeWindow ?? mainWindow
+    const window = maohaoLoginWindow ?? welcomeWindow ?? mainWindow
     if (window === undefined || window.isDestroyed()) {
       try { createMainWindow() } catch (error) { reportFatal(error, 'main'); return }
       void (backend.state.phase === 'ready' ? openInitialWindow() : navigateMain(applicationUrl)).catch((error: unknown) => { reportFatal(error, 'main') })
@@ -1232,10 +1446,12 @@ async function main(): Promise<void> {
     window.focus()
   }
 
-  if (app.isPackaged || process.env.DSH_DESKTOP_DEV_APP === '1') app.setAsDefaultProtocolClient('dsh')
+  // Keep the branded test protocol independent from an installed upstream DSH.
+  const externalProtocol = app.name === '贸号DSH' ? 'imaohao' : 'dsh'
+  if (app.isPackaged || process.env.DSH_DESKTOP_DEV_APP === '1') app.setAsDefaultProtocolClient(externalProtocol)
   app.on('open-url', (event, url) => {
     event.preventDefault()
-    if (url === 'dsh://open' || url === 'dsh://open/') focusPrimaryWindow()
+    if (url === `${externalProtocol}://open` || url === `${externalProtocol}://open/`) focusPrimaryWindow()
   })
 
   app.on('activate', (_event, hasVisibleWindows) => {
@@ -1340,6 +1556,33 @@ async function main(): Promise<void> {
   publishUpdate(updateState)
 }
 
+// Windows CI checks the *installed binary* rather than the builder's config.
+// Keep the diagnostic behind an explicit CLI argument and never expose secrets.
+const brandProbe = process.argv.find(argument => argument.startsWith('--imaohao-brand-check='))
+if (brandProbe !== undefined) {
+  const output = brandProbe.slice('--imaohao-brand-check='.length)
+  const panelFiles = [
+    join(app.getAppPath(), 'renderer', 'imaohao-mouse.html'),
+    join(app.getAppPath(), 'renderer', 'imaohao-mouse.js'),
+    join(app.getAppPath(), 'renderer', 'imaohao-mouse.css'),
+    join(app.getAppPath(), 'lib', 'preload-imaohao-mouse.cjs'),
+    join(process.resourcesPath, 'umouse-sdk', 'umouse-bridge.exe'),
+    join(process.resourcesPath, 'umouse-sdk', 'uMouseSdk.dll'),
+  ]
+  if (!isMaoHaoEdition || app.name !== '贸号DSH' || output.length === 0 || panelFiles.some(file => !existsSync(file))) {
+    console.error('iMaoHao brand check failed: packaged edition is not active')
+    app.exit(12)
+  } else {
+    writeFileSync(output, JSON.stringify({
+      edition: 'mock-v2',
+      name: app.name,
+      userData: app.getPath('userData'),
+      gatewayMode: 'imaohao',
+      uMousePanel: true,
+    }), 'utf8')
+    app.exit(0)
+  }
+} else {
 const ownsDesktopInstance = claimDesktopSingleInstance(app, () => { focusPrimaryWindow() })
 
 if (ownsDesktopInstance) void app.whenReady().then(main).catch(async (error: unknown) => {
@@ -1354,3 +1597,4 @@ if (ownsDesktopInstance) void app.whenReady().then(main).catch(async (error: unk
   console.error(error)
   app.exit(1)
 })
+}

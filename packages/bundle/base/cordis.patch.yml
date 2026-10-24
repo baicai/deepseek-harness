@@ -90,8 +90,8 @@
     - id: agent-default-model
       name: '@deepseek-ai/dsh-agent-default-model'
       config:
-        provider: deepseek-official
-        model: deepseek-flash
+        provider: !!js "process.env.IMAOHAO_BRANDING_TEST === '1' ? 'imaohao' : 'deepseek-official'"
+        model: !!js "process.env.IMAOHAO_BRANDING_TEST === '1' ? 'default' : 'deepseek-flash'"
 
     - id: jobs
       name: '@deepseek-ai/dsh-jobs-local'
@@ -134,6 +134,11 @@
     # document.
     - id: llm-pi-ai
       name: '@deepseek-ai/dsh-llm-pi-ai'
+      # The branded route must exist as the Desktop profile boots. Starting
+      # the demo gateway beforehand supplies a real loopback origin and key.
+      # A production customer gateway can implement the same wire contract.
+      config:
+        providers: !!js "process.env.IMAOHAO_BRANDING_TEST === '1' ? { imaohao: { displayName: '贸号模型', api: 'openai-completions', baseURL: process.env.IMAOHAO_GATEWAY_BASE_URL, apiKeyEnv: 'IMAOHAO_GATEWAY_API_KEY', models: [{ id: 'default', name: '默认', contextWindow: 32768, maxTokens: 4096 }, { id: 'iMaoHao-V6.1-Astra', name: 'iMaoHao-V6.1-Astra', contextWindow: 32768, maxTokens: 4096 }] } } : {}"
 
     - id: session-persistence-jsonl
       name: '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -520,3 +525,4 @@
 
     - id: llm-deepseek-account
       name: '@deepseek-ai/dsh-llm-deepseek-account'
+      disabled: !!js "process.env.IMAOHAO_BRANDING_TEST === '1'"

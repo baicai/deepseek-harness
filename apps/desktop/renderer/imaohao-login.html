@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<title>贸号DSH · 演示账号登录</title>
+<link rel="stylesheet" href="imaohao-login.css">
+<script defer src="imaohao-login.js"></script>
+</head>
+<body>
+<main class="login">
+  <img class="logo" src="assets/welcome-brand.svg" alt="贸号DSH">
+  <h1>贸号DSH</h1><p class="slogan">AI用贸号，省心又高效！</p>
+  <div class="notice">Mock 演示环境 · 不使用 DeepSeek 账户 · 非真实用户认证</div>
+  <form id="login-form" autocomplete="off">
+    <label for="username">演示账户</label>
+    <input id="username" name="username" type="email" value="demo@imaohao.com" required maxlength="120">
+    <label for="password">演示密码</label>
+    <input id="password" name="password" type="password" value="demo123456" required maxlength="120">
+    <div id="message" role="status" aria-live="polite"></div>
+    <button type="submit" id="login-button">登录并进入工作区</button>
+  </form>
+  <div class="mouse-entry"><strong>声云智能鼠标 · uMouse SDK v0.4.20</strong><p>支持 USB / BLE 连接与真实硬件按键事件。未连接设备时可先查看 SDK 运行状态。</p><button id="mouse-open" type="button">查看智能鼠标设备管理</button></div>
+  <p class="foot">仅供桌面二次开发验证。正式版本将替换为贸号账号服务。</p>
+</main>
+</body></html>

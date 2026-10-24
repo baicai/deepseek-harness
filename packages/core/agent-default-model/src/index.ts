@@ -65,6 +65,13 @@ export class AgentDefaultModelConfig extends Service {
    * @returns a detached provider, model, and optional reasoning selection.
    */
   currentSelection(): ModelSelection {
+    // For branded test installations, a fresh session starts with the mocked
+    // “默认” route even after the DeepSeek account initializer previously saved
+    // one of its own defaults. Explicitly selected sessions are not changed.
+    const configuredProvider = this.config.provider.get()
+    if (process.env.IMAOHAO_BRANDING_TEST === '1' && configuredProvider !== 'imaohao') {
+      return selection({ provider: 'imaohao', model: 'default' })
+    }
     const reasoningEffort = this.config.reasoningEffort.get()
     return selection({
       provider: this.config.provider.get(), model: this.config.model.get(),

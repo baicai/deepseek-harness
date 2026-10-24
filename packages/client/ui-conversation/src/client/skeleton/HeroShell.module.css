@@ -48,6 +48,16 @@
    the badge stranded beside a fragment. When the badge no longer fits beside
    the title it wraps to its own centered line below; while both fit, the group
    is content-sized and centering is a no-op, keeping the superscript snug. */
+/* Standalone branded desktop subtitle, kept separate from the product name. */
+.brandSlogan {
+  margin: -6px 0 0;
+  color: var(--dsw-alias-label-secondary);
+  text-align: center;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
 .titleGroup {
   display: flex;
   flex-wrap: wrap;

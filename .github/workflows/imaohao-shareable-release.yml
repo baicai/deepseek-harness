@@ -1,0 +1,80 @@
+name: iMaoHao DSH Shareable Release
+
+on:
+  push:
+    branches: [imaohao-branding-test]
+    paths:
+      - 'apps/desktop/**'
+      - 'apps/desktop-host/**'
+      - 'packages/bundle/**'
+      - 'packages/llm/**'
+      - 'packages/client/**'
+      - 'examples/imaohao-integration/**'
+      - '.github/workflows/imaohao-desktop-build.yml'
+      - '.github/workflows/imaohao-shareable-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: imaohao-dsh-publish-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/imaohao-branding-test'
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify successful Windows installer artifact from tested PR build
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Pinned, previously tested PR merge build for 0d853cc; never substitute another run silently.
+          build_run=39921922914
+          source_commit=0d853cc18accf3bfd87e65662dbe00367d471c7b
+          run_json=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$build_run")
+          echo "$run_json" | jq -e --arg commit "$source_commit" '
+            .status == "completed" and .conclusion == "success"
+            and .head_sha == $commit
+          ' >/dev/null
+          artifact_json=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$build_run/artifacts")
+          artifact_name=$(echo "$artifact_json" | jq -r '
+            [.artifacts[] | select(.expired == false and (.name | startswith("iMaoHao-dsh-windows-x64-")))] |
+            if length == 1 then .[0].name else empty end
+          ')
+          test -n "$artifact_name"
+          mkdir -p dist
+          gh run download "$build_run" --repo "$GITHUB_REPOSITORY" --name "$artifact_name" --dir dist
+          installer=$(find dist -maxdepth 1 -name 'iMaoHao-dsh-*-win-x64-unsigned.exe' -type f -print -quit)
+          test -n "$installer"
+          test "$(find dist -maxdepth 1 -name 'iMaoHao-dsh-*-win-x64-unsigned.exe' -type f | wc -l)" -eq 1
+          echo "RELEASE_SOURCE_COMMIT=$source_commit" >> "$GITHUB_ENV"
+          echo "Validated build run $build_run / artifact $artifact_name"
+
+      - name: Build customer contract ZIP
+        run: |
+          cd examples
+          zip -q -r "$GITHUB_WORKSPACE/dist/iMaoHao-DSH-Customer-Integration-Kit.zip" imaohao-integration
+
+      - name: Publish GitHub Release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="imaohao-dsh-demo-${RELEASE_SOURCE_COMMIT:0:12}"
+          installer=$(find dist -maxdepth 1 -type f -name 'iMaoHao-dsh-*-win-x64-unsigned.exe' -print -quit)
+          gh release create "$tag" "$installer" dist/iMaoHao-DSH-Customer-Integration-Kit.zip \
+            --repo "$GITHUB_REPOSITORY" --target "$RELEASE_SOURCE_COMMIT" \
+            --title "iMaoHao DSH Demo ${RELEASE_SOURCE_COMMIT:0:12}" --prerelease \
+            --notes "Based on real DSH Electron source. Mock login and mock model service. Windows build and silent install/reinstall gates passed on pinned PR merge build 39921922914 for source commit 0d853cc; unsigned developer preview. Manual login/model/physical uMouse tests pending."
+          echo "Release: https://github.com/$GITHUB_REPOSITORY/releases/tag/$tag"

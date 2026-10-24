@@ -1,0 +1,66 @@
+openapi: 3.1.0
+info:
+  title: iMaoHao-DSH customer integration gateway (Mock contract)
+  version: 0.1.0
+servers:
+  - url: http://127.0.0.1:39401
+paths:
+  /health:
+    get:
+      responses:
+        '200': {description: Health check}
+  /auth/login:
+    post:
+      security: [{ServiceBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: {type: string}
+                password: {type: string}
+      responses:
+        '200': {description: Bearer access_token, expires_in and user profile}
+        '401': {description: Login failed}
+  /auth/me:
+    get:
+      security: [{SessionBearer: []}]
+      responses:
+        '200': {description: User profile with id/name/email/roles/tenant_id}
+        '401': {description: No active session}
+  /auth/logout:
+    post:
+      security: [{SessionBearer: []}]
+      responses:
+        '200': {description: Session revoked}
+  /v1/models:
+    get:
+      security: [{ServiceBearer: []}]
+      responses:
+        '200': {description: OpenAI compatible model list with id/name}
+        '401': {description: Unauthorized}
+  /v1/chat/completions:
+    post:
+      security: [{ServiceBearer: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [model, messages]
+              properties:
+                model: {type: string}
+                messages: {type: array, items: {type: object, additionalProperties: true}}
+                stream: {type: boolean}
+                tools: {type: array, items: {type: object, additionalProperties: true}}
+      responses:
+        '200': {description: ChatCompletion JSON or text/event-stream with SSE data [DONE]}
+        '401': {description: Unauthorized}
+components:
+  securitySchemes:
+    ServiceBearer: {type: http, scheme: bearer}
+    SessionBearer: {type: http, scheme: bearer}

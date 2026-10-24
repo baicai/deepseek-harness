@@ -1,6 +1,6 @@
 {
-  "name": "DeepSeek Harness",
-  "short_name": "DSH",
+  "name": "贸号",
+  "short_name": "贸号",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

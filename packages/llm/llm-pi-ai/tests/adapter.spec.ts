@@ -68,6 +68,10 @@ function adapterOf(
 }
 
 beforeEach(() => {
+  // All upstream cases keep the default provider roster even when the
+  // branded Windows packaging workflow exports IMAOHAO_BRANDING_TEST=1.
+  // Each explicit iMaoHao test opts back into the branded mode below.
+  vi.stubEnv('IMAOHAO_BRANDING_TEST', '0')
   // Configuration carries only the reference; these mounts resolve it from
   // the environment, which is the whole credential plane without a seam.
   vi.stubEnv('PI_TEST_KEY', 'test-key')
@@ -1111,6 +1115,31 @@ it.each([
   if (error instanceof LlmError && error.code === 'MISSING_CREDENTIAL') {
     expect(await adapter.listModels('deepseek')).toEqual([])
   } else await expect(adapter.listModels('deepseek')).rejects.toBe(error)
+})
+
+it('iMaoHao branded desktop exposes two routable catalog models from configured gateway', async () => {
+  vi.stubEnv('IMAOHAO_BRANDING_TEST', '1')
+  vi.stubEnv('IMAOHAO_GATEWAY_BASE_URL', 'http://127.0.0.1:39401/v1')
+  vi.stubEnv('IMAOHAO_GATEWAY_API_KEY', 'integration-test-only-token')
+  const ctx = new Context()
+  await ctx.plugin(LlmRuntime)
+  await ctx.plugin(LlmPiAi, { providers: {} })
+  expect(ctx.llm.listProviders().map(provider => provider.id)).toContain('imaohao')
+  const models = await ctx.llm.listModels('imaohao')
+  expect(models.map(model => [model.id, model.name])).toEqual([
+    ['default', '默认'],
+    ['iMaoHao-V6.1-Astra', 'iMaoHao-V6.1-Astra'],
+  ])
+  const resolved = await ctx.llm.resolveModelInfo('imaohao', 'default')
+  expect(resolved.id).toBe('default')
+})
+
+it('upstream runtime does not register customer mock providers', async () => {
+  vi.stubEnv('IMAOHAO_BRANDING_TEST', '0')
+  const ctx = new Context()
+  await ctx.plugin(LlmRuntime)
+  await ctx.plugin(LlmPiAi, { providers: {} })
+  expect(ctx.llm.listProviders().some(provider => provider.id === 'imaohao' || provider.id === 'imaohao-demo')).toBe(false)
 })
 
 it('resolves the exact pi-ai image budget for screenshot coordinates', () => {

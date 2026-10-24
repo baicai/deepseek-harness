@@ -32,6 +32,8 @@ env:
 
 jobs:
   preview:
+    # This downstream PR validates a native Windows app; it has no access to upstream Cloudflare deployment secrets.
+    if: github.event.pull_request.head.ref != 'imaohao-branding-test'
     runs-on: ubuntu-24.04
     name: cloudflare pages preview
     steps:
@@ -168,3 +170,10 @@ jobs:
             "$marker" \
             "[Preview for #$PR](https://pr-$PR.${CF_PROJECT}.pages.dev) (requires Cloudflare Access sign-in)" \
             | gh pr comment "$PR" --body-file -
+
+  imaohao-windows-package:
+    name: iMaoHao-dsh Windows x64 installer
+    if: github.event.pull_request.head.ref == 'imaohao-branding-test'
+    uses: ./.github/workflows/imaohao-desktop-build.yml
+    permissions:
+      contents: read
