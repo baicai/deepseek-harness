@@ -6,6 +6,7 @@ import { bindSnapshotSelector, makeTranslate, RemoteError } from '@deepseek-ai/d
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { InputState } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SpeechPreparationState, SpeechProviderId, Transcript } from '@deepseek-ai/dsh-experimental-speech-to-text/types'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { VoiceInput, type VoiceInputProps } from '../src/client/VoiceInput.tsx'
@@ -30,7 +31,10 @@ function fixture(recording?: Recording) {
   } })
   const transcribe = vi.fn<(request: unknown, signal: AbortSignal) => Promise<RemoteResult<Transcript>>>(
     async () => ({ ok: true, value: transcript }))
-  const props: VoiceInputProps = { sessionId: 'one' as SessionId, inputActions, transcribe, locked: false, onActiveChange: vi.fn(),
+  const useInput = bindSnapshotSelector(createSnapshotStore<InputState>({
+    draft: '', attachmentIds: [], draftRev: 1, phase: 'plain', occurrences: [], queue: [],
+  }))
+  const props: VoiceInputProps = { sessionId: 'one' as SessionId, inputActions, useInput, transcribe, locked: false, onActiveChange: vi.fn(),
     openSettings: vi.fn(), prepare: vi.fn(async () => {}), cancelPreparation: vi.fn(async () => {}), configure: vi.fn(async () => {}),
     selectMicrophone: vi.fn(), useMicrophoneDevice: bindSnapshotSelector(createSnapshotStore({ id: '', label: '' })),
     useSpeechReadiness: bindSnapshotSelector(readiness), createRecording: () => recording ?? capture,
