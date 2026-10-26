@@ -118,7 +118,7 @@ export function createElectronBuilderConfig(
     },
     productName: maohaoEvaluation ? 'DSH-maohao Evaluation' : 'DeepSeek Harness',
     // Unsigned builds carry their own suffix so a shared file can never pass for a release artifact.
-    artifactName: `${maohaoEvaluation ? "dsh-maohao-evaluation" : "deepseek-harness"}-\${version}-\${os}-\${arch}\${output.suffix}.\${ext}`,
+    artifactName: `${maohaoEvaluation ? "dsh-maohao-evaluation" : "deepseek-harness"}-\${version}-\${os}-\${arch}${output.suffix}.\${ext}`,
     directories: { output: output.directory },
     asar: true,
     electronDist: buildPaths.electron,
