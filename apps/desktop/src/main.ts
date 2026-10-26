@@ -344,14 +344,19 @@ async function main(): Promise<void> {
   let startup: Promise<void> | undefined
   let workspaceRecovery: Promise<void> | undefined
   let mainWindow: BrowserWindow | undefined
-  // Native SDK is loaded in a separate Windows process; events are scoped to our primary window.
+  // Only explicit physical AI-key holds may forward live PCM into the trusted renderer.
+  // This avoids exposing any background microphone audio before/after a button press.
+  const capturingMice = new Set<string>()
   const mouseBridge = new MouseBridge(
     join(process.resourcesPath, 'umouse-sdk'), app.getPath('logs'),
     (data) => {
-      if (data.kind === 'message' && data.event.type === 'keyEvent'
-        && data.event.key === 'ai' && (data.event.action === 'click' || data.event.action === 'down')) {
-        focusPrimaryWindow()
+      if (data.kind === 'message' && data.event.type === 'keyEvent' && data.event.key === 'ai') {
+        if (data.event.action === 'down') capturingMice.add(data.deviceId)
+        if (data.event.action === 'up') capturingMice.delete(data.deviceId)
+        if (data.event.action === 'click' || data.event.action === 'down') focusPrimaryWindow()
       }
+      if (data.kind === 'disconnected') capturingMice.delete(data.deviceId)
+      if (data.kind === 'audio' && !capturingMice.has(data.deviceId)) return
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(DESKTOP_IPC.mouseEvent, data)
     },
     (state) => {
