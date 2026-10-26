@@ -33,12 +33,12 @@ jobs:
           node-version: '24'
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
-      - name: Verify TypeScript and desktop bundle
-        run: pnpm --filter @deepseek-ai/dsh-desktop run build
-      - name: Verify SDK integration helper
+      - name: Compile and verify pinned SDK / native IPC helper
         shell: pwsh
         run: |
           & ./apps/desktop/scripts/prepare-maohao-mouse-sdk.ps1 -OutputDirectory 'apps/desktop/.desktop-build/targets/win-x64/umouse-sdk'
+      - name: Build DSH through the repository dependency graph
+        run: pnpm run build
       - name: Prepare evaluation-only packaging settings
         shell: pwsh
         run: |
