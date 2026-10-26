@@ -45,7 +45,9 @@ type PhysicalMouseEvent =
   | { kind: 'audio'; deviceId: string; format: 'pcm_s16le'; sampleRate: 16000; data: string }
 
 interface PhysicalMouse {
+  status(): Promise<{ connected: number }>
   subscribe(listener: (event: PhysicalMouseEvent) => void): () => void
+  subscribeStatus(listener: (state: { connected: number }) => void): () => void
 }
 
 function physicalMouse(): PhysicalMouse | undefined {
@@ -106,6 +108,7 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
   const inputRef = useRef(inputState)
   inputRef.current = inputState
   const [mouseMessage, setMouseMessage] = useState('')
+  const [mouseConnected, setMouseConnected] = useState(0)
   const readiness = useSpeechReadiness(value => value), catalog = readiness.catalog
   const provider = catalog?.providers.find(item => item.id === catalog.selection.providerId)
   const usable = readiness.connected && (provider?.preparation.phase === 'ready' || provider?.preparation.phase === 'standby'
@@ -121,6 +124,7 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
     const mouse = physicalMouse()
     if (!mouse) return
     let active: MouseRecording | undefined
+    let transcribing: AbortController | undefined
     let generation = 0
     let disposed = false
     const maxAudioBytes = Math.min(catalog?.maxAudioBytes ?? 0, 4 * 1024 * 1024)
@@ -128,10 +132,14 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
     const reset = (message = ''): void => {
       generation++
       if (active) { clearTimeout(active.timeout); active.abort.abort(); active = undefined }
+      transcribing?.abort()
+      transcribing = undefined
       if (!disposed) setMouseMessage(message)
     }
     const start = (deviceId: string): void => {
       if (active) return
+      transcribing?.abort()
+      transcribing = undefined
       if (!usable || !catalog) {
         setMouseMessage('请先在 DSH 插件中准备 Voice Input 语音识别模型')
         return
@@ -155,6 +163,7 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
       if (!recording || recording.id !== deviceId) return
       active = undefined
       clearTimeout(recording.timeout)
+      transcribing = recording.abort
       const id = ++generation
       if (Date.now() - recording.at < 250 || recording.bytes < 6400) {
         recording.abort.abort()
@@ -177,11 +186,23 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
             setMouseMessage('输入状态已经改变，未自动提交，请重新录音')
             return
           }
-          // Submit through DSH's ordinary composer path; all Agent permissions remain in force.
+          // Wait for the editor's asynchronous revision to publish before using the
+          // ordinary DSH submit path. Otherwise a fast ASR completion may send the old draft.
+          for (let attempt = 0; attempt < 12 && inputRef.current.draft !== text; attempt++) {
+            await new Promise<void>(resolve => { setTimeout(resolve, 40) })
+            if (disposed || id !== generation || recording.abort.signal.aborted) return
+          }
+          if (inputRef.current.draft !== text || inputRef.current.phase !== 'plain') {
+            setMouseMessage('语音已识别，但输入框尚未就绪；为安全起见没有自动发送')
+            return
+          }
+          // DSH retains native tool, file and execution approvals.
           inputActions.submit()
           setMouseMessage('')
         } catch (_error) {
           if (!disposed && id === generation) setMouseMessage('鼠标语音处理失败，请重试')
+        } finally {
+          if (transcribing === recording.abort) transcribing = undefined
         }
       })()
     }
@@ -211,10 +232,17 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
       // click is handled in Electron to focus the existing DSH window.
     }
     const unsubscribe = mouse.subscribe(onEvent)
+    const unsubscribeStatus = mouse.subscribeStatus((state) => {
+      if (!disposed) setMouseConnected(state.connected)
+    })
+    void mouse.status().then((state) => {
+      if (!disposed) setMouseConnected(state.connected)
+    }).catch(() => undefined)
     return () => {
       disposed = true
       reset()
       unsubscribe()
+      unsubscribeStatus()
     }
   }, [sessionId, inputActions, usable, locked, transcribe, catalog?.selection.providerId,
     catalog?.maxAudioBytes, catalog?.maxDurationSeconds])
@@ -297,6 +325,7 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
     }
   }
   if (!expanded) return <>
+    {mouseConnected > 0 && !mouseMessage && <span className={css.activityMessage} role="status">贸号鼠标已连接</span>}
     {mouseMessage && <span className={css.activityMessage} role="status">{mouseMessage}</span>}
     <Tooltip label={t('dictate')} disabled={!usable} side="top" portal>
       <span className={css.triggerAnchor}><Button className={css.trigger} size="sm" disabled={locked}
