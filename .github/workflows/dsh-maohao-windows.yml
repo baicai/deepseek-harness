@@ -1,0 +1,70 @@
+name: DSH-maohao Windows evaluation
+
+on:
+  push:
+    branches: [dsh-maohao]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dsh-maohao-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: 'true'
+  DSH_TELEMETRY_DISABLED: '1'
+  DSH_MAOHAO_EVALUATION: '1'
+  DSH_DESKTOP_BUILD_VERSION: '0.2.1-alpha.5.maohao.${{ github.run_number }}.${{ github.run_attempt }}'
+
+jobs:
+  windows-x64:
+    name: Windows x64 SDK / TypeScript / installer
+    runs-on: windows-2025
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify TypeScript and desktop bundle
+        run: pnpm --filter @deepseek-ai/dsh-desktop run build
+      - name: Verify SDK integration helper
+        shell: pwsh
+        run: |
+          & ./apps/desktop/scripts/prepare-maohao-mouse-sdk.ps1 -OutputDirectory 'apps/desktop/.desktop-build/targets/win-x64/umouse-sdk'
+      - name: Prepare evaluation-only packaging settings
+        shell: pwsh
+        run: |
+          @"
+          DSH_DESKTOP_APP_ID=com.maohao.dsh.evaluation
+          DSH_MAOHAO_EVALUATION=1
+          DSH_DESKTOP_AUTO_UPDATE_ENV=test
+          DOWNLOAD_TEST_ORIGIN=https://example.com
+          DOWNLOAD_TEST_RELEASE_ID=0123456789abcdef0123456789abcdef
+          DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN=https://example.com
+          DSH_DESKTOP_MANDATORY_UPDATE_PROD_ORIGIN=https://example.com
+          DSH_DESKTOP_MANDATORY_UPDATE_CONFIG='{"allowedAuthOrigins":["https://example.com"]}'
+          DSH_DESKTOP_WINDOWS_SIGNATURE_CACHE_CONCURRENCY=4
+          "@ | Set-Content -Path apps/desktop/.env.windows -Encoding utf8
+      - name: Package unsigned evaluation EXE
+        run: pnpm run package:desktop:win:x64:unsigned
+      - name: Upload internal evaluation build
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-maohao-evaluation-windows-x64
+          path: apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts/*
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload packaging diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-maohao-packaging-diagnostics
+          path: apps/desktop/.desktop-build/packaging-runs/
+          if-no-files-found: warn
+          retention-days: 7
