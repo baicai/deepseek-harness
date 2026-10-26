@@ -61,6 +61,7 @@ import { DesktopUpdateOverlays } from './update-overlay.ts'
 import { DesktopQuitConfirmation } from './quit-confirmation.ts'
 import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
+import { MouseBridge } from './umouse-bridge.ts'
 
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => {}
@@ -343,6 +344,22 @@ async function main(): Promise<void> {
   let startup: Promise<void> | undefined
   let workspaceRecovery: Promise<void> | undefined
   let mainWindow: BrowserWindow | undefined
+  // Native SDK is loaded in a separate Windows process; events are scoped to our primary window.
+  const mouseBridge = new MouseBridge(
+    join(process.resourcesPath, 'umouse-sdk'), app.getPath('logs'),
+    (data) => {
+      if (data.kind === 'message' && data.event.type === 'keyEvent'
+        && data.event.key === 'ai' && (data.event.action === 'click' || data.event.action === 'down')) {
+        focusPrimaryWindow()
+      }
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(DESKTOP_IPC.mouseEvent, data)
+    },
+    (state) => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(DESKTOP_IPC.mouseStatusChanged, state)
+    },
+  )
+  if (process.platform === 'win32') mouseBridge.start(true)
+  app.on('will-quit', () => { mouseBridge.stop() })
   let welcomeWindow: BrowserWindow | undefined
   let enteredWorkspace = false
   // NSIS passes --updated when it launches the application after installation.
@@ -776,6 +793,10 @@ async function main(): Promise<void> {
   ipcMain.handle(DESKTOP_IPC.deviceInfo, (event) => {
     assertProductSender(event)
     return readDeviceInfo()
+  })
+  ipcMain.handle(DESKTOP_IPC.mouseStatus, (event) => {
+    assertProductSender(event)
+    return mouseBridge.snapshot()
   })
   ipcMain.handle(DESKTOP_IPC.onboardingApiKey, async (event) => {
     assertProductSender(event)
