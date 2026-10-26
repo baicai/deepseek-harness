@@ -1,80 +1,74 @@
-# DSH-maohao 联合版 SDK 集成实施评估
+# DSH-maohao：贸号 AI 鼠标 × DeepSeek Harness 联合版实施评估（修订）
 
-> 产品名：DeepSeek harness-贸号版；内部代号：DSH-maohao
-> 日期：2026-10-26；状态：实施评估 / 尚未完成集成与真机验收
+> 日期：2026-10-26
+> 产品定位：面向贸号鼠标用户的 DeepSeek Harness 硬件交互联合版本。
+> 项目代号：DSH-maohao（内部用）。
+> 状态：需求与技术方案修订；**尚未移植 SDK 代码、未取得 DeepSeek 联合品牌授权、未完成真机验收**。
+> 已复核公开来源：贸号官网 `https://www.imaohao.com/aimouse.html`、`https://www.imaohao.com/AIButton.html`、`https://www.imaohao.com/VoiceKey.html`、`https://www.imaohao.com/TranslateButton.html`、`https://www.imaohao.com/OcrButton.html`、`https://www.imaohao.com/qa.html`；DeepSeek 上游品牌规范 `https://github.com/deepseek-ai/deepseek-harness/blob/master/BRAND_GUIDELINES.md`、使用条款 `https://www.deepseek.com/en/harness/terms-of-use/`。
 
-## 版本边界
+## 一、关键产品定位修正
 
-- 基于 `baicai/deepseek-harness` 原版 `master`，新开发分支 `dsh-maohao`。
-- 旧定制版保存在 `archive/imaohao-branding-test-20261026`；禁止在新分支合并整条旧品牌分支。
-- 保留 DSH 原有品牌、Logo、账户登录、模型、Session、Agent、Workspace、Tools。
-- 仅为 Windows x64 添加鼠标硬件适配与必要交互；不实施原 iMaoHao Mock 登录/LLM、品牌定制、About 页及客服二维码。
-- 客户 SDK 唯一版本：`baicai/mouse-sdk@b2a7355bb117d77a3c72c7d090f3852d947bd47c`（uMouse SDK v0.4.20）。
+过去“DSH 加一个可选的鼠标外设”的方案**偏离客户目标**。真正目标是贸号自行基于开源 DSH 开发鼠标定制交互版本，并作为技术成果提交 DeepSeek 评估并**申请**官方合作 / 联合品牌授权。不能在获得授权前对外声称 DeepSeek 官方定制、官方推出或合作已获批准。
 
-## 已核实资产（旧定制分支，可选择性复用）
+- DSH 是 AI Agent 引擎与原有账户、模型、工作区、对话的提供者；
+- **贸号 AI 鼠标是核心交互方式**：其 AI 键将用户口头任务直接送入当前 DSH Agent 会话，可重复长按进行上下文连续指令；
+- 联合版与普通 DSH 的关键差异是硬件一键指挥的端到端体验，不是改 logo/替换账号/替换模型；
+- 无鼠标时不应伪装成具有硬件完整体验：专属 AI 键指挥、设备状态和按键自动控制仅在实际识别到受支持鼠标时可用。是否限制不插鼠标时的普通 DSH 基础功能为商务/授权决策，默认**不锁死 DSH 原有基础能力**，防止演示与用户账号被设备故障卡住；
+- 软件可以保持 DSH 官方原貌，但联合品牌名称、图标、市场宣传及给用户展示的“官方版本”身份，**都以后续 DeepSeek 书面授权为前提**。内测分发必须注明“贸号独立开发、基于 DSH、待官方审核”，不作已授权暗示。
 
-- `apps/desktop/native/umouse-bridge.cpp`：独立 C++ helper，动态加载 uMouseSdk.dll；连接、断开、JSON 事件与 16 kHz / 16 bit / 单声道 PCM 数据。
-- `apps/desktop/src/umouse-bridge.ts`：Electron 子进程生命周期、事件验证、连接列表。
-- `apps/desktop/scripts/prepare-imaohao-mouse-sdk.ps1`：锁定 SDK 压缩包 Git blob，MSVC 编译 helper，ABI 版本检查；应重命名去品牌、保持锁定机制。
-- 原 `main.ts` 能实现 AI 键 click 唤起工作区；PCM 转发默认关闭，语音转文字及 DSH 会话输入尚未打通。
-- 原鼠标事件观察窗、托盘可作为测试工具参考；不要复用旧版独立自动弹窗（曾出现双窗口体验）。
-- DSH 原版已有可选实验性 Voice Input 本地 SenseVoice ASR，随默认发行包提供但默认未启用；`speechController.transcribe` 接收 canonical base64 WAV，最大默认 4 MiB / 120 秒，`InputActions.insertText` 写入当前草稿并校验会话版本。
+## 二、贸号官网定义的物理操作（以实机兼容性验收）
 
-## 推荐数据流
+| 实体按键 | 官网功能 | DSH-maohao 交互设计 |
+| --- | --- | --- |
+| AI 键 | 单击唤醒 AI 软件；长按直接讲话、下达任务；连续长按修改上一轮结果 | **最高优先：单击唤醒 DSH；长按录音，松开转写并自动投递当前 Agent；再次长按继续当前 Session；高风险执行仍尊重 DSH 审批** |
+| 语音键 | 在任意文本输入位置语音打字，支持短按/长按 | 次优先：DSH 内通用听写；任意软件全局输入要评估键盘焦点、安全性与和贸号既有软件的冲突，不纳入第一个核心闭环 |
+| 翻译键 | 划词翻译 / 按住实时翻译 | 后续：优先复用已有翻译能力，不虚称现成支持官网所列 200 种语言 |
+| 截图键 / M 键 | 旧 S5 截图 / OCR；升级 S5 M 键自定义 | 后续：配置常用 DSH 快捷任务；设备型号不同须映射不同事件 |
+| USB 2.4G / 蓝牙双通道 | 设备连接与切换 | 首版必须覆盖受支持实物型号、自动重连和离线异常 |
 
-```text
-贸号鼠标 USB 2.4G / BLE
-    → uMouseSdk v0.4.20（FULL 模式）
-    → umouse-bridge.exe（独立进程）
-    → 安全 IPC / Electron 主进程（状态/按键/受控 PCM）
-    → 贸号鼠标交互适配器
-        ├─ AI click → 聚焦 DSH Workspace
-        └─ speech down/up → 限时收集 PCM → 规范 WAV → DSH speechController.transcribe
-                                             → 当前会话 InputActions.insertText
-                                             → 用户确认后用 DSH 原有发送逻辑提交
-```
+官网具体型号包含 S5 旧款、S5 升级款、X3、X1 等；能力与固件不同。不能假设 SDK 默认设备识别涵盖所有贸号型号，须客户提供首发型号、固件和样机。
 
-## 分阶段实施
+## 三、首版不可妥协的完整用户体验
 
-### G0：先确保原版纯净
+1. 连接贸号鼠标（第一次启动显示设备引导及状态）；用户原有 DSH 登录及模型选择不变。
+2. **AI 键单击**：立即唤醒/聚焦 DSH 已有工作区，不创建第二主窗口。
+3. **AI 键长按**：从该鼠标的音频 PCM 开始录制，显示清晰的“正在聆听”状态；支持在 DSH 最小化时发起。
+4. **松开 AI 键**：结束本次录音，完成 ASR，展示识别中的状态；有有效语音则自动作为当前会话用户指令提交给 Agent，**不要求再次用键盘输入或点击发送**；若 ASR 失败、音频缺失或识别为空，不提交。
+5. **多轮连续长按**：仍保持当前 Session 及任务上下文。例如：“生成活动策划”→“把第三部分做成表格”。不能默认每次另建会话。
+6. Agent 的文件改写、命令执行、插件权限、外部服务发送等继续严格沿用 DSH 原生审批，不因声控自动跳过。
+7. **无鼠标对比**：普通 DSH 仍可使用；但“物理 AI 键一键直达 + 按住口头指挥 + 松手自动执行 + 设备交互”明确由贸号鼠标激活，避免联合版变成与普通 DSH 完全同体验的重新打包。
 
-1. 在 `dsh-maohao` 从 DSH master 开发。绝不引入原 iMaoHao 品牌、Mock 账号或模型代码。
-2. 创建可与旧贸号定制版并存的 Windows 安装身份及数据目录，避免同名升级覆盖或用户配置污染；界面仍沿用原 DSH。
-3. 增加显式联动开关。无鼠标、SDK 缺失、DLL 加载失败时 DSH 正常可用。
+## 四、最小技术路径（已核实源码）
 
-### G1：最小硬件联动（首个可演示 Gate）
+- 原版来源：`baicai/deepseek-harness`，新分支 `dsh-maohao` 基于 `master`。
+- 旧定制版本封存：`archive/imaohao-branding-test-20261026`，**禁止整分支合并**。
+- 声云 SDK 唯一基线：`baicai/mouse-sdk@b2a7355bb117d77a3c72c7d090f3852d947bd47c`，`uMouseSdk v0.4.20`；FULL 模式支持 `ai/down`、`ai/up`、`ai/click`、`speech/down/up` 和音频 PCM 16 kHz、16bit、单声道。
+- 旧分支可选择性复用 `apps/desktop/native/umouse-bridge.cpp` 独立 C++ 进程 + `apps/desktop/src/umouse-bridge.ts` + SDK 固定版本构建脚本；其旧实现**仅对 AI click 聚焦 DSH**，PCM 转发默认禁用且没有 AI 键长按 ASR / Agent 自动提交的逻辑。
+- DSH 原版已内置可选实验性 `Voice Input` / SenseVoice ASR：`speechController.transcribe` 接收完整 16k PCM WAV base64；默认插件未启用且需准备识别模型。可复用 ASR 但需要为**外部鼠标音频**接入 Host 侧可信路径，不能错误复用浏览器麦克风 UI，不能把浏览器用户可控输入冒充硬件身份。
+- 新增 `mouse-command-controller`（名称示意）：针对每个 SN 的按下/抬起状态机、录音生命周期、音频限流、WAV 封装、ASR、目标 Session / Workspace 绑定与安全命令提交；不是模拟键盘快捷键和模拟 DOM 点击；必须通过 DSH 已有 Session/Composer 公共 API 或授权的 Host 命令接口进入 Agent。
+- 音频是否随 AI 键按住实际流出 **必须用目标固件真机验证**；SDK 提供音频回调并不能单独证明 AI 键会开启音频流。若不成立，要先由声云/贸号提供相应 SDK 控制或固件方案，不能悄悄改成“按语音键”冒充 AI 键功能。
+- AI 长按由实际 `ai/down/up` 与持续时间决定，`ai/click` 仅对应单击；需避免单次释放后短击事件与长按提交重复触发。设备断开、过短录音、重复按键、变更 Session、应用启动未就绪、低电量、队列溢出、多个设备均有确定退化行为。
+- 与客户现有贸号驱动/鼠标软件的**并行运行抢占、AI 键双触发、声云 SDK 独占 HID/BLE** 需要实机验证；若冲突应明确“联合版接管 AI 键 / 二选一”并给用户清楚提示。
 
-1. 精准移植 helper、构建脚本与主进程桥；校验 `um_sdk_version() == 0.4.20`。
-2. USB/BLE 设备连接、断线恢复、状态查询（内部 SN 不应泄露到日志/UI）。
-3. AI 键 `keyEvent: {key:'ai', action:'click'}` 聚焦已有 DSH 主界面，不自动创建额外窗口。
-4. 保留按键诊断视图供验收；未定义键仅可观察，不向系统注入按键。
-5. 设备无关的自动化回归与安装包检查；真机 USB/BLE 验证必须单独执行。
+## 五、体验与商业价值边界
 
-### G2：语音输入闭环（推荐联合版价值核心）
+- 核心差异：鼠标在手边就能对 DSH 按住讲话、自动提交、连续追问，省去窗口切换、文字输入和发送动作。
+- 联合版设备状态（USB/BLE、电量、支持状态）、AI 键反馈和录音状态作为必要而克制的 UI 补充；整体保持原 DSH 布局，不突然弹出多余独立窗口。
+- 可以在应用中增加首次硬件引导、设备已连接提示及显式“贸号鼠标专属 AI 指挥”标识，但任何联合品牌 Logo/官方授权措辞须通过 DeepSeek 审核。
+- 不应“为了卖鼠标”在技术上人为禁用合法 DSH 基础功能；鼠标价值由操作体验提升和硬件专属交互形成。若客户后续提出硬件 SN 授权、专属权益、捆绑服务，应另行确认授权和商业条款，SDK 的 SN 回调不等于可信防伪或计费许可。
+- 保留原生 DeepSeek 账户和默认模型，不实施品牌全站换肤、Mock 登录、客户账号/模型替换。
 
-1. `speech/down` 进入录音、`speech/up` 完成；只在显式录音时转发/缓存 PCM，不在后台持续留存。
-2. PCM 16 kHz/16bit/mono 封装为 DSH 接口要求的 PCM16 WAV；受 DSH 默认 4 MiB / 120s 限制，首版建议更短超时，处理短按、无音频、丢包、断开、重复按键与同时多个鼠标。
-3. 复用内建的 `speechController.transcribe` 和 SenseVoice；语音插件未启用、模型未准备时给出入口提示；不新建 ASR API、账户系统或 LLM Provider。
-4. 转写写入当前 Session 输入草稿而非直接 Agent 命令；若 Session 改变或当前输入失效，则不误插别的会话；默认用户确认后发送。
-5. 双向独立验证：SDK→PCM、PCM→转写、转写→DSH 草稿、实际 DSH 模型回复。软件模拟音频的测试不能冒充鼠标真机通过。
+## 六、交付 Gate
 
-### G3：发布门禁
+- G0：基于原版的纯净分支，差异仅为必要鼠标适配；归档旧分支。
+- G1：至少一种确定型号 USB + BLE 真机识别；AI 短按聚焦与长按开始传音；经常用的贸号软件同机相容性判定。
+- G2：**从真实 AI 键长按说话到松手后自动向当前 Agent 发出可见结果，多轮连贯，失败时无误提交**；不能把“鼠标事件面板显示 AI click”和“PC 麦克风识别成功”算作 G2。
+- G3：新旧版与原 DSH 基础功能回归、无设备不崩溃、不额外弹双窗口、安装隔离、SDK 商业分发许可/依赖声明/签名、安全与用户隐私检查。
+- G4：客户验收通过的 **授权申请包**：产品说明、交互演示、代码差异与 MIT / 第三方许可合规、软硬件型号兼容清单、免责/审批逻辑、版本及安装包。正式“DeepSeek 贸号鼠标版”品牌和公开推广必须在取得 DeepSeek 明确书面授权后进行。
+- 内部评估 EXE 与提交给 DeepSeek 的评估包分离于正式发布；未经授权不得将样机版宣传为 DeepSeek 官方推出。
 
-- Windows 10/11 x64 USB 2.4G + BLE 真实鼠标；连接、AI 键、speech 上下键、语音输入、失联、重新连接、重启、无设备、系统休眠唤醒。
-- 无鼠标不拖慢启动或破坏原 DSH 账号登录、Agent、Session、文件工作区、模型。
-- 不默认打开设备管理独立窗口；测试面板可通过菜单按需打开，优先集成最小状态入口。
-- 新旧两个客户端可并存安装，且配置、更新地址、卸载行为互不干扰。
-- 安装包内完整 DLL 依赖及 LGPL/BSD NOTICE；确认声云 SDK 二进制商业再分发授权。签名与 Windows 风险提示单独处理。
-- 发布 GitHub Releases 稳定链接而非 Actions 的短期 artifact；未完成真机与发行审核时标明 Evaluation，不宣称量产可用。
+## 七、尚待硬件方核实（不阻止已知软件部分开展）
 
-## 风险与不做项
-
-- **硬件型号匹配风险（关键阻塞）**：SDK 预设生产设备标识/协议并不能证明所有贸号鼠标型号可识别，客户须提供实体及对应固件/连接方式核验。
-- **语音模型准备**：原 DSH Voice Input 默认关闭，SenseVoice INT8 权重约 239 MB，加上运行时及 VAD；首次启动需准备模型，不允许静默下载，模型许可、下载镜像及安装体验需要验证。
-- **数据隐私**：PCM 仅为明确的按键录音捕获，不保存音频或设备完整 SN 日志，不自动向 Agent 提交高风险命令。
-- **本版不做**：贸号独立身份认证、iMaoHao-V6.1-Astra、Logo 替换、客户模型网关、系统范围任意鼠标宏、通用多厂商设备协议、翻译 Agent 和截图联动；这些是后续独立需求。
-- **发布权利**：DSH 原版许可和商标使用、声云 SDK 商业分发许可需要分别核对。
-
-## 目前真实状态
-
-已创建封存分支与新开发分支；本文件为可落地的集成计划，**尚未将 SDK 代码移植到新分支，尚无新联合版 EXE，未完成鼠标真机测试**。
+1. 本次拟交付主力贸号鼠标型号/固件、USB VID/PID 与 BLE 标识，以及 AI 键长按的真实按键和 PCM 行为。
+2. 与当前贸号鼠标驱动共存/接管模式、是否允许在 DSH 中重映射默认 AI 键。
+3. SDK 二进制商业分发、品牌申请及向 DeepSeek 送审的授权主体与范围。
