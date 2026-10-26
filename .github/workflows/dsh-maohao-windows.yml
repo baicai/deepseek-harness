@@ -3,6 +3,8 @@ name: DSH-maohao Windows evaluation
 on:
   push:
     branches: [dsh-maohao]
+  pull_request:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
