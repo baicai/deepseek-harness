@@ -75,6 +75,7 @@ function pcmWave(chunks: readonly Uint8Array[], length: number): Uint8Array<Arra
 
 interface MouseRecording {
   readonly id: string
+  readonly key: 'speech' | 'ai'
   readonly at: number
   readonly span: TokenSpan
   readonly abort: AbortController
@@ -136,7 +137,7 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
       transcribing = undefined
       if (!disposed) setMouseMessage(message)
     }
-    const start = (deviceId: string): void => {
+    const start = (deviceId: string, key: 'speech' | 'ai'): void => {
       if (active) return
       transcribing?.abort()
       transcribing = undefined
@@ -154,20 +155,25 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
       const timeout = setTimeout(() => {
         if (id === generation) reset('鼠标语音录制已达到时长限制')
       }, maxDurationSeconds * 1000)
-      active = { id: deviceId, at: Date.now(), span: inputActions.captureInsertion(),
+      active = { id: deviceId, key, at: Date.now(), span: inputActions.captureInsertion(),
         abort: new AbortController(), chunks: [], bytes: 0, timeout }
-      setMouseMessage('贸号 AI 鼠标正在聆听，松开 AI 键自动提交')
+      setMouseMessage(`贸号鼠标正在聆听，松开${key === 'speech' ? '语音' : 'AI'}键后识别并提交`)
     }
-    const finish = (deviceId: string): void => {
+    const finish = (deviceId: string, key: 'speech' | 'ai'): void => {
       const recording = active
-      if (!recording || recording.id !== deviceId) return
+      if (!recording || recording.id !== deviceId || recording.key !== key) return
       active = undefined
       clearTimeout(recording.timeout)
       transcribing = recording.abort
       const id = ++generation
-      if (Date.now() - recording.at < 250 || recording.bytes < 6400) {
+      if (Date.now() - recording.at < 250) {
         recording.abort.abort()
-        setMouseMessage('')
+        setMouseMessage('短按只唤醒窗口，请长按语音键说话')
+        return
+      }
+      if (recording.bytes < 6400) {
+        recording.abort.abort()
+        setMouseMessage('检测到鼠标按键，但未收到足够的鼠标音频；请长按语音键并检查 SDK 音频通道')
         return
       }
       setMouseMessage('正在识别鼠标语音…')
@@ -226,10 +232,12 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
         } catch (_error) { reset('鼠标音频数据异常，请重试') }
         return
       }
-      if (event.kind !== 'message' || event.event.type !== 'keyEvent' || event.event.key !== 'ai') return
-      if (event.event.action === 'down') start(event.deviceId)
-      else if (event.event.action === 'up') finish(event.deviceId)
-      // click is handled in Electron to focus the existing DSH window.
+      if (event.kind !== 'message' || event.event.type !== 'keyEvent'
+        || (event.event.key !== 'speech' && event.event.key !== 'ai')) return
+      const key = event.event.key
+      if (event.event.action === 'down') start(event.deviceId, key)
+      else if (event.event.action === 'up') finish(event.deviceId, key)
+      // The AI click is separately handled by Electron to focus the existing window.
     }
     const unsubscribe = mouse.subscribe(onEvent)
     const unsubscribeStatus = mouse.subscribeStatus((state) => {
