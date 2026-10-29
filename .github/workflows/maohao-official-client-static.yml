@@ -57,6 +57,12 @@ jobs:
           }
           $files = @(Get-ChildItem $dir -Recurse -File)
           Write-Output "UNPACKED_FILES=$($files.Count)"
+          Write-Output "ARCHIVE_LIST_TOP"
+          Get-Content (Join-Path $dir '7zip-list.txt') | Select-Object -First 80 | ForEach-Object { Write-Output $_ }
+          Write-Output "ARCHIVE_EXTRACT_TAIL"
+          Get-Content (Join-Path $dir '7zip-extract.txt') | Select-Object -Last 35 | ForEach-Object { Write-Output $_ }
+          Write-Output "EXTRACTED_FILE_INVENTORY"
+          $files | Select-Object -First 120 | ForEach-Object { Write-Output "EXTRACTED_FILE=$($_.FullName.Substring($dir.Length + 1)) SIZE=$($_.Length)" }
           $files | Where-Object { $_.Name -match '\.asar$|\.onnx$|\.node$|speech|voice|asr|recogn|whisper|model' } |
             Select-Object -First 45 | ForEach-Object { Write-Output "STATIC_FILE=$($_.FullName.Substring($dir.Length + 1)) SIZE=$($_.Length)" }
       - name: Extract Electron asar data only (no app execution)
