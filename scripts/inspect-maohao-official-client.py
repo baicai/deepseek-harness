@@ -104,10 +104,11 @@ section('Hostname indicators only (not URLs or API credentials)',
 native_files = []
 for path in sorted(all_files):
     rel = path.relative_to(root).as_posix()
-    if '/Contents/MacOS/' in rel or (
-        path.suffix.lower() in {'.dylib','.rcc','.pak','.dat'}
-        and any(x in rel.lower() for x in ['umouse','speech','voice','asr','resource','maoh','rhino'])
-    ):
+    is_main_app = '/Contents/MacOS/' in rel and rel.count('.app/') == 1
+    is_specific_audio_binary = (path.suffix.lower() in {'.dylib','.rcc','.dat','.onnx','.model'}
+        and any(x in path.name.lower() for x in ['umouse','speech','voice','asr','audio','model'])
+        and 'Chromium Embedded Framework' not in rel)
+    if is_main_app or is_specific_audio_binary:
         try:
             if 0 < path.stat().st_size <= 160 * 1024 * 1024: native_files.append(path)
         except OSError: pass
