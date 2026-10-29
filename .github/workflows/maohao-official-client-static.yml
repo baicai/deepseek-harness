@@ -10,95 +10,78 @@ permissions:
   contents: read
 
 jobs:
-  windows-static:
-    name: Windows official URL static inspection
-    runs-on: windows-2025
-    timeout-minutes: 50
+  linux-inno:
+    name: Official installer Inno Setup static extraction
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Download exact user-provided official EXE, never execute it
-        shell: pwsh
+      - name: Install static extraction tools
         run: |
-          $ErrorActionPreference = 'Stop'
-          $url = 'https://umousestorage.sonicrhino.cc/mouse_version/2026/08/20/%E8%B4%B8%E5%8F%B7-4.1.10-win-x64_d86a0a1c.exe'
-          $dir = Join-Path $env:RUNNER_TEMP 'maohao-official'
-          New-Item -ItemType Directory -Path $dir -Force | Out-Null
-          $file = Join-Path $dir 'official-maohao-4.1.10.exe'
-          & curl.exe -fL --retry 2 --retry-delay 4 --connect-timeout 25 --max-time 1000 -o $file $url
-          if ($LASTEXITCODE -ne 0) { throw "Official URL could not be fetched (curl exit $LASTEXITCODE)" }
-          $length = (Get-Item -LiteralPath $file).Length
-          if ($length -lt 1000000 -or $length -gt 600000000) { throw "Unexpected installer length: $length" }
-          Write-Output "OFFICIAL_EXE_BYTES=$length"
-          Write-Output "OFFICIAL_EXE_SHA256=$((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash)"
-      - name: Extract installation payload without launching vendor executable
-        shell: pwsh
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq innoextract p7zip-full
+      - name: Download exact official user-supplied Windows installer
         run: |
-          $ErrorActionPreference = 'Stop'
-          $dir = Join-Path $env:RUNNER_TEMP 'maohao-official'
-          $file = Join-Path $dir 'official-maohao-4.1.10.exe'
-          $target = Join-Path $dir 'unpacked'
-          New-Item -ItemType Directory -Path $target -Force | Out-Null
-          $seven = @('C:\Program Files\7-Zip\7z.exe','C:\Program Files (x86)\7-Zip\7z.exe') | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $seven) { throw '7-Zip not available on Windows runner' }
-          & $seven l $file *> (Join-Path $dir '7zip-list.txt')
-          Write-Output "7ZIP_LIST_EXIT=$LASTEXITCODE"
-          & $seven x $file "-o$target" -y *> (Join-Path $dir '7zip-extract.txt')
-          Write-Output "7ZIP_EXTRACT_EXIT=$LASTEXITCODE"
-          $nested = @(Get-ChildItem $target -Recurse -File | Where-Object { $_.Extension -in @('.7z','.zip') -and $_.Length -lt 1000000000 } | Select-Object -First 5)
-          for ($i=0; $i -lt $nested.Count; $i++) {
-            $child = $nested[$i]
-            $childTarget = Join-Path $dir ('nested-' + [string]$i)
-            New-Item -ItemType Directory -Path $childTarget -Force | Out-Null
-            & $seven x $child.FullName "-o$childTarget" -y *> (Join-Path $dir ('nested-' + $child.BaseName + '.log'))
-            Write-Output "NESTED_ARCHIVE=$($child.Name) EXIT=$LASTEXITCODE"
-          }
-          $files = @(Get-ChildItem $dir -Recurse -File)
-          Write-Output "UNPACKED_FILES=$($files.Count)"
-          Write-Output "ARCHIVE_LIST_TOP"
-          Get-Content (Join-Path $dir '7zip-list.txt') | Select-Object -First 80 | ForEach-Object { Write-Output $_ }
-          Write-Output "ARCHIVE_EXTRACT_TAIL"
-          Get-Content (Join-Path $dir '7zip-extract.txt') | Select-Object -Last 35 | ForEach-Object { Write-Output $_ }
-          Write-Output "EXTRACTED_FILE_INVENTORY"
-          $files | Select-Object -First 120 | ForEach-Object { Write-Output "EXTRACTED_FILE=$($_.FullName.Substring($dir.Length + 1)) SIZE=$($_.Length)" }
-          $files | Where-Object { $_.Name -match '\.asar$|\.onnx$|\.node$|speech|voice|asr|recogn|whisper|model' } |
-            Select-Object -First 45 | ForEach-Object { Write-Output "STATIC_FILE=$($_.FullName.Substring($dir.Length + 1)) SIZE=$($_.Length)" }
-      - name: Extract Electron asar data only (no app execution)
-        shell: pwsh
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/maohao-official"
+          file="$RUNNER_TEMP/maohao-official/official-maohao-4.1.10.exe"
+          curl -fL --retry 2 --connect-timeout 25 --max-time 950 \
+            -o "$file" 'https://umousestorage.sonicrhino.cc/mouse_version/2026/08/20/%E8%B4%B8%E5%8F%B7-4.1.10-win-x64_d86a0a1c.exe'
+          test "$(stat -c %s "$file")" -gt 200000000
+          echo "OFFICIAL_EXE_BYTES=$(stat -c %s "$file")"
+          sha256sum "$file" | awk '{print "OFFICIAL_EXE_SHA256=" $1}'
+      - name: Extract Inno payload as data (never launch installer)
+        run: |
+          set +e
+          root="$RUNNER_TEMP/maohao-official"
+          mkdir -p "$root/payload"
+          innoextract --list "$root/official-maohao-4.1.10.exe" > "$root/inno-list.txt" 2>&1
+          echo "INNO_LIST_EXIT=$?"
+          innoextract --extract --output-dir "$root/payload" "$root/official-maohao-4.1.10.exe" > "$root/inno-extract.txt" 2>&1
+          echo "INNO_EXTRACT_EXIT=$?"
+          echo "INNO_LIST_HEAD"
+          head -60 "$root/inno-list.txt"
+          echo "INNO_EXTRACT_TAIL"
+          tail -45 "$root/inno-extract.txt"
+          echo "TOP_EXTRACTED_FILES"
+          find "$root/payload" -type f -printf '%s %p\n' | sort -rn | head -55
+          echo "ASAR_FILES"
+          find "$root/payload" -type f -name '*.asar' -printf '%s %p\n' | head -10
+          exit 0
+      - name: Extract Electron ASAR archives as data (optional)
         continue-on-error: true
         run: |
-          $dir = Join-Path $env:RUNNER_TEMP 'maohao-official'
-          $asars = @(Get-ChildItem $dir -Recurse -File -Filter '*.asar' | Select-Object -First 3)
-          if (-not $asars) { Write-Output 'NO_ASAR_FOUND'; exit 0 }
-          $packageDir = Join-Path $env:RUNNER_TEMP 'asar-inspector'
-          npm install --prefix $packageDir --no-audit --no-fund --ignore-scripts '@electron/asar'
-          if ($LASTEXITCODE -ne 0) { throw 'Asar tool installation failed' }
-          $asarBin = Join-Path $packageDir 'node_modules\.bin\asar.cmd'
-          for ($i=0; $i -lt $asars.Count; $i++) {
-            $archive = $asars[$i]
-            $destination = Join-Path $dir ('asar-extracted-' + [string]$i)
-            New-Item -ItemType Directory -Path $destination -Force | Out-Null
-            & $asarBin extract $archive.FullName $destination
-            Write-Output "ASAR_EXTRACT=$($archive.Name) EXIT=$LASTEXITCODE"
-          }
-      - name: Generate safe offline diagnostic report
-        shell: pwsh
+          root="$RUNNER_TEMP/maohao-official"
+          find "$root/payload" -type f -name '*.asar' | head -3 > "$root/asar-paths.txt"
+          if ! test -s "$root/asar-paths.txt"; then
+            echo 'NO_ASAR_FOUND'; exit 0
+          fi
+          npm install --prefix "$RUNNER_TEMP/asar-tool" --no-audit --no-fund --ignore-scripts '@electron/asar'
+          n=0
+          while IFS= read -r archive; do
+            dest="$root/asar-extracted-$n"
+            mkdir -p "$dest"
+            "$RUNNER_TEMP/asar-tool/node_modules/.bin/asar" extract "$archive" "$dest" || true
+            echo "ASAR_EXTRACTED_INDEX=$n FILE_COUNT=$(find "$dest" -type f | wc -l)"
+            n=$((n+1))
+          done < "$root/asar-paths.txt"
+      - name: Inspect extracted payload and produce safe text report
         if: always()
         run: |
-          $dir = Join-Path $env:RUNNER_TEMP 'maohao-official'
-          $report = Join-Path $env:GITHUB_WORKSPACE 'maohao-client-static-report.md'
-          if (Test-Path $dir) {
-            python scripts/inspect-maohao-official-client.py $dir $report
-          } else {
-            Set-Content -Path $report -Value 'Official URL could not be downloaded in Windows runner.' -Encoding utf8
-          }
-      - name: Save text analysis only (never upload vendor EXE or payload)
+          root="$RUNNER_TEMP/maohao-official"
+          if test -d "$root"; then
+            python3 scripts/inspect-maohao-official-client.py "$root" maohao-client-static-report.md
+          else
+            echo 'Official URL could not be fetched.' > maohao-client-static-report.md
+          fi
+      - name: Upload text report only; no EXE, DLL, models or source
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: maohao-4-1-10-static-report-only
+          name: maohao-4-1-10-inno-static-report-only
           path: maohao-client-static-report.md
           if-no-files-found: warn
           retention-days: 3
