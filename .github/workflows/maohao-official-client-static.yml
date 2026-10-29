@@ -1,0 +1,94 @@
+name: Inspect official Maohao installer (static only)
+
+on:
+  push:
+    branches: ['analysis/maohao-official-client-static']
+
+permissions:
+  contents: read
+
+jobs:
+  windows-static:
+    name: Windows official URL static inspection
+    runs-on: windows-2025
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Download exact user-provided official EXE, never execute it
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = 'https://umousestorage.sonicrhino.cc/mouse_version/2026/08/20/%E8%B4%B8%E5%8F%B7-4.1.10-win-x64_d86a0a1c.exe'
+          $dir = Join-Path $env:RUNNER_TEMP 'maohao-official'
+          New-Item -ItemType Directory -Path $dir -Force | Out-Null
+          $file = Join-Path $dir 'official-maohao-4.1.10.exe'
+          & curl.exe -fL --retry 2 --retry-delay 4 --connect-timeout 25 --max-time 1000 -o $file $url
+          if ($LASTEXITCODE -ne 0) { throw "Official URL could not be fetched (curl exit $LASTEXITCODE)" }
+          $length = (Get-Item -LiteralPath $file).Length
+          if ($length -lt 1000000 -or $length -gt 600000000) { throw "Unexpected installer length: $length" }
+          Write-Output "OFFICIAL_EXE_BYTES=$length"
+          Write-Output "OFFICIAL_EXE_SHA256=$((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash)"
+      - name: Extract installation payload without launching vendor executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:RUNNER_TEMP 'maohao-official'
+          $file = Join-Path $dir 'official-maohao-4.1.10.exe'
+          $target = Join-Path $dir 'unpacked'
+          New-Item -ItemType Directory -Path $target -Force | Out-Null
+          $seven = @('C:\Program Files\7-Zip\7z.exe','C:\Program Files (x86)\7-Zip\7z.exe') | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $seven) { throw '7-Zip not available on Windows runner' }
+          & $seven l $file *> (Join-Path $dir '7zip-list.txt')
+          Write-Output "7ZIP_LIST_EXIT=$LASTEXITCODE"
+          & $seven x $file "-o$target" -y *> (Join-Path $dir '7zip-extract.txt')
+          Write-Output "7ZIP_EXTRACT_EXIT=$LASTEXITCODE"
+          $nested = Get-ChildItem $target -Recurse -File | Where-Object { $_.Extension -in @('.7z','.zip') -and $_.Length -lt 1000000000 } | Select-Object -First 5
+          foreach ($child in $nested) {
+            $childTarget = Join-Path $dir ('nested-' + [string]$nested.IndexOf($child))
+            New-Item -ItemType Directory -Path $childTarget -Force | Out-Null
+            & $seven x $child.FullName "-o$childTarget" -y *> (Join-Path $dir ('nested-' + $child.BaseName + '.log'))
+            Write-Output "NESTED_ARCHIVE=$($child.Name) EXIT=$LASTEXITCODE"
+          }
+          $files = @(Get-ChildItem $dir -Recurse -File)
+          Write-Output "UNPACKED_FILES=$($files.Count)"
+          $files | Where-Object { $_.Name -match '\.asar$|\.onnx$|\.node$|speech|voice|asr|recogn|whisper|model' } |
+            Select-Object -First 45 | ForEach-Object { Write-Output "STATIC_FILE=$($_.FullName.Substring($dir.Length + 1)) SIZE=$($_.Length)" }
+      - name: Extract Electron asar data only (no app execution)
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'maohao-official'
+          $asars = @(Get-ChildItem $dir -Recurse -File -Filter '*.asar' | Select-Object -First 3)
+          if (-not $asars) { Write-Output 'NO_ASAR_FOUND'; exit 0 }
+          $packageDir = Join-Path $env:RUNNER_TEMP 'asar-inspector'
+          npm install --prefix $packageDir --no-audit --no-fund --ignore-scripts '@electron/asar'
+          if ($LASTEXITCODE -ne 0) { throw 'Asar tool installation failed' }
+          $asarBin = Join-Path $packageDir 'node_modules\.bin\asar.cmd'
+          foreach ($archive in $asars) {
+            $destination = Join-Path $dir ('asar-extracted-' + [string]$asars.IndexOf($archive))
+            New-Item -ItemType Directory -Path $destination -Force | Out-Null
+            & $asarBin extract $archive.FullName $destination
+            Write-Output "ASAR_EXTRACT=$($archive.Name) EXIT=$LASTEXITCODE"
+          }
+      - name: Generate safe offline diagnostic report
+        shell: pwsh
+        if: always()
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'maohao-official'
+          $report = Join-Path $env:GITHUB_WORKSPACE 'maohao-client-static-report.md'
+          if (Test-Path $dir) {
+            python scripts/inspect-maohao-official-client.py $dir $report
+          } else {
+            Set-Content -Path $report -Value 'Official URL could not be downloaded in Windows runner.' -Encoding utf8
+          }
+      - name: Save text analysis only (never upload vendor EXE or payload)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: maohao-4-1-10-static-report-only
+          path: maohao-client-static-report.md
+          if-no-files-found: warn
+          retention-days: 3
