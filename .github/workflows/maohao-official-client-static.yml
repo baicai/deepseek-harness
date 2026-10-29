@@ -10,78 +10,68 @@ permissions:
   contents: read
 
 jobs:
-  linux-inno:
-    name: Official installer Inno Setup static extraction
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
+  macos-static:
+    name: Official Maohao macOS DMG data inspection
+    runs-on: macos-15
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Install static extraction tools
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq innoextract p7zip-full
-      - name: Download exact official user-supplied Windows installer
+      - name: Fetch exactly user-supplied official Maohao DMG
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/maohao-official"
-          file="$RUNNER_TEMP/maohao-official/official-maohao-4.1.10.exe"
-          curl -fL --retry 2 --connect-timeout 25 --max-time 950 \
-            -o "$file" 'https://umousestorage.sonicrhino.cc/mouse_version/2026/08/20/%E8%B4%B8%E5%8F%B7-4.1.10-win-x64_d86a0a1c.exe'
-          test "$(stat -c %s "$file")" -gt 200000000
-          echo "OFFICIAL_EXE_BYTES=$(stat -c %s "$file")"
-          sha256sum "$file" | awk '{print "OFFICIAL_EXE_SHA256=" $1}'
-      - name: Extract Inno payload as data (never launch installer)
+          root="$RUNNER_TEMP/maohao-official"
+          mkdir -p "$root"
+          curl -fL --retry 2 --connect-timeout 25 --max-time 900 \
+            -o "$root/official-maohao-4.1.10.dmg" \
+            'https://umousestorage.sonicrhino.cc/mouse_version/2026/10/15/%E8%B4%B8%E5%8F%B7-4.1.10-universal_3d9d003e.dmg'
+          echo "DMG_BYTES=$(stat -f '%z' "$root/official-maohao-4.1.10.dmg")"
+          shasum -a 256 "$root/official-maohao-4.1.10.dmg" | awk '{print "DMG_SHA256=" $1}'
+      - name: Mount read-only and inventory app (never run app binary)
         run: |
           set +e
           root="$RUNNER_TEMP/maohao-official"
-          mkdir -p "$root/payload"
-          innoextract --list "$root/official-maohao-4.1.10.exe" > "$root/inno-list.txt" 2>&1
-          echo "INNO_LIST_EXIT=$?"
-          innoextract --extract --output-dir "$root/payload" "$root/official-maohao-4.1.10.exe" > "$root/inno-extract.txt" 2>&1
-          echo "INNO_EXTRACT_EXIT=$?"
-          echo "INNO_LIST_HEAD"
-          head -60 "$root/inno-list.txt"
-          echo "INNO_EXTRACT_TAIL"
-          tail -45 "$root/inno-extract.txt"
-          echo "TOP_EXTRACTED_FILES"
-          find "$root/payload" -type f -printf '%s %p\n' | sort -rn | head -55
-          echo "ASAR_FILES"
-          find "$root/payload" -type f -name '*.asar' -printf '%s %p\n' | head -10
+          mkdir -p "$root/mounted"
+          hdiutil attach -readonly -nobrowse -mountpoint "$root/mounted" "$root/official-maohao-4.1.10.dmg"
+          echo "DMG_MOUNT_EXIT=$?"
+          find "$root/mounted" -maxdepth 7 -type f | head -75 | sed "s#$root/##" || true
+          echo 'RESOURCE_NAME_HINTS'
+          find "$root/mounted" -type f | grep -Ei 'asar|speech|voice|recogn|asr|onnx|model|engine|umouse|audio' | head -100 | sed "s#$root/##" || true
+          echo 'APP_ASAR_LIST'
+          find "$root/mounted" -type f -name '*.asar' | head -10 | sed "s#$root/##" || true
           exit 0
-      - name: Extract Electron ASAR archives as data (optional)
+      - name: Electron ASAR static extraction and file inventory
         continue-on-error: true
         run: |
+          set -euo pipefail
           root="$RUNNER_TEMP/maohao-official"
-          find "$root/payload" -type f -name '*.asar' | head -3 > "$root/asar-paths.txt"
-          if ! test -s "$root/asar-paths.txt"; then
-            echo 'NO_ASAR_FOUND'; exit 0
-          fi
+          find "$root/mounted" -type f -name '*.asar' | head -3 > "$root/asar-paths.txt"
+          if ! test -s "$root/asar-paths.txt"; then echo 'NO_ASAR_FOUND'; exit 0; fi
           npm install --prefix "$RUNNER_TEMP/asar-tool" --no-audit --no-fund --ignore-scripts '@electron/asar'
           n=0
           while IFS= read -r archive; do
             dest="$root/asar-extracted-$n"
             mkdir -p "$dest"
-            "$RUNNER_TEMP/asar-tool/node_modules/.bin/asar" extract "$archive" "$dest" || true
+            "$RUNNER_TEMP/asar-tool/node_modules/.bin/asar" extract "$archive" "$dest"
             echo "ASAR_EXTRACTED_INDEX=$n FILE_COUNT=$(find "$dest" -type f | wc -l)"
             n=$((n+1))
           done < "$root/asar-paths.txt"
-      - name: Inspect extracted payload and produce safe text report
+      - name: Create sanitized static ASR report
         if: always()
         run: |
           root="$RUNNER_TEMP/maohao-official"
           if test -d "$root"; then
             python3 scripts/inspect-maohao-official-client.py "$root" maohao-client-static-report.md
           else
-            echo 'Official URL could not be fetched.' > maohao-client-static-report.md
+            echo 'Official DMG unavailable.' > maohao-client-static-report.md
           fi
-      - name: Upload text report only; no EXE, DLL, models or source
+      - name: Upload report only, never vendor installer or app payload
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: maohao-4-1-10-inno-static-report-only
+          name: maohao-4-1-10-official-macos-static-report
           path: maohao-client-static-report.md
           if-no-files-found: warn
           retention-days: 3
