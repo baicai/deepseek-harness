@@ -386,3 +386,28 @@ it.each(['later', 'escape', 'ready', 'session'])('dismisses unavailable recognit
     expect(screen.getByRole('dialog')).toBeTruthy()
   }
 })
+
+it.each(['speech', 'ai'] as const)('uses the physical %s key for push-to-talk and reports missing SDK PCM', (key) => {
+  type MouseMessage = { kind: 'message'; deviceId: string; event: { type: 'keyEvent'; key: 'speech' | 'ai'; action: 'down' | 'up' } }
+  const listeners = new Set<(event: MouseMessage) => void>()
+  const mouse = {
+    status: vi.fn(async () => ({ connected: 1 })),
+    subscribe: (listener: (event: MouseMessage) => void) => { listeners.add(listener); return () => { listeners.delete(listener) } },
+    subscribeStatus: () => () => {},
+  }
+  vi.stubGlobal('dshDesktop', { mouse })
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(1000)
+  const b = fixture()
+  const emit = (action: 'down' | 'up') => act(() => {
+    for (const listener of listeners) listener({ kind: 'message', deviceId: 'test-device', event: { type: 'keyEvent', key, action } })
+  })
+  emit('down')
+  expect(screen.getByRole('status').textContent).toContain('正在聆听')
+  expect(b.transcribe).not.toHaveBeenCalled()
+  clock.mockReturnValue(2000)
+  emit('up')
+  expect(screen.getByRole('status').textContent).toContain('未收到足够的鼠标音频')
+  expect(b.inputActions.submit).not.toHaveBeenCalled()
+  expect(b.transcribe).not.toHaveBeenCalled()
+  clock.mockRestore()
+})
