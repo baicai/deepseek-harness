@@ -81,9 +81,9 @@ def section(label, rows):
     lines.extend(rows)
 
 lines = [
- '# Maohao 4.1.10 official Windows installer — static indicator report',
- 'Input: only official user-supplied URL, scanned without executing EXE',
- 'Extraction: offline 7-Zip and (when available) Electron asar reader',
+ '# Maohao 4.1.10 official client — static indicator report',
+ 'Input: only official user-supplied URL, scanned without launching installer or app',
+ 'Extraction: static file structure (Inno/DMG); Qt native binaries separately scanned',
  f'Files discovered: {len(all_files)}; text/asar files scanned: {scanned}; bytes scanned: {size_total}',
  'Interpretation: matching terms and hostnames do not prove actual runtime use; encryption/packing can obscure indicators.',
 ]
@@ -98,6 +98,52 @@ section('Electron package metadata and relevant module dependencies',
          for path,name,ver,pairs in deps[:30]])
 section('Hostname indicators only (not URLs or API credentials)',
         [f'- {host}: {num}' for host,num in hosts.most_common(100)])
+# Native application code is Mach-O / Qt, not Electron; no app.asar is expected.
+# Inspect only the main app executable and specific nonframework app binaries, as raw
+# bytes. Never print strings containing URL paths, tokens, user data, or whole binaries.
+native_files = []
+for path in sorted(all_files):
+    rel = path.relative_to(root).as_posix()
+    if '/Contents/MacOS/' in rel or (
+        path.suffix.lower() in {'.dylib','.rcc','.pak','.dat'}
+        and any(x in rel.lower() for x in ['umouse','speech','voice','asr','resource','maoh','rhino'])
+    ):
+        try:
+            if 0 < path.stat().st_size <= 160 * 1024 * 1024: native_files.append(path)
+        except OSError: pass
+native_report = []
+for path in native_files[:20]:
+    rel = path.relative_to(root).as_posix()
+    try: blob = path.read_bytes()
+    except OSError: continue
+    needles = ['asr', 'speech', 'voice', 'transcrib', 'recogniz', 'whisper', 'funasr',
+               'sensevoice', 'onnx', 'baidu', 'aliyun', 'xfyun', 'tencent', 'websocket',
+               'dictation', 'audio', 'record', 'qtwebsockets', 'http']
+    counts = {k: blob.lower().count(k.encode('ascii')) for k in needles}
+    counts = {k:v for k,v in counts.items() if v}
+    # Count only domains, not endpoint paths or credentials.
+    domains = collections.Counter(m.group(1).decode('ascii','ignore').lower()
+        for m in re.finditer(rb'https?://([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})(?=[/:?#\s\x22\x27]|$)', blob))
+    # Extract standalone technology-looking ASCII identifiers without surrounding code.
+    ascii_runs = re.findall(rb'[\x20-\x7e]{7,150}', blob)
+    relevant = []
+    for item in ascii_runs:
+        candidate = item.decode('ascii','ignore')
+        if any(re.search(r'(?i)(^|[^a-z])(asr|speech|voice|transcrib|recogniz|whisper|sensevoice|funasr|websocket)([^a-z]|$)', word)
+               for word in re.findall(r'[A-Za-z0-9_.-]{5,90}', candidate)):
+            for word in re.findall(r'[A-Za-z_][A-Za-z0-9_.-]{5,85}', candidate):
+                if re.search(r'(?i)(asr|speech|voice|transcrib|recogniz|whisper|sensevoice|funasr|websocket)',word):
+                    if word not in relevant: relevant.append(word)
+                    if len(relevant) >= 50: break
+        if len(relevant) >= 50: break
+    native_report.append(
+        f'- {rel[:180]} ({len(blob)} bytes)\n'
+        f'  technology keyword matches: {json.dumps(counts,sort_keys=True)}\n'
+        f'  hostname indicators: {json.dumps(dict(domains.most_common(24)))}\n'
+        f'  selected identifier indicators: {json.dumps(relevant[:30],ensure_ascii=False)}'
+    )
+section('Native Mach-O application binary indicators (no raw strings, no secrets)',
+        native_report)
 report.write_text('\n'.join(lines)+'\n',encoding='utf8')
-print('\n'.join(lines[:65])[:14500])
+print('\n'.join(lines[:80])[:23000])
 print('REPORT:',report)
