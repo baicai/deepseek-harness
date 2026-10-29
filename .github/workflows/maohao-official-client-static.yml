@@ -3,6 +3,8 @@ name: Inspect official Maohao installer (static only)
 on:
   push:
     branches: ['analysis/maohao-official-client-static']
+  pull_request:
+    branches: ['master']
 
 permissions:
   contents: read
@@ -45,9 +47,10 @@ jobs:
           Write-Output "7ZIP_LIST_EXIT=$LASTEXITCODE"
           & $seven x $file "-o$target" -y *> (Join-Path $dir '7zip-extract.txt')
           Write-Output "7ZIP_EXTRACT_EXIT=$LASTEXITCODE"
-          $nested = Get-ChildItem $target -Recurse -File | Where-Object { $_.Extension -in @('.7z','.zip') -and $_.Length -lt 1000000000 } | Select-Object -First 5
-          foreach ($child in $nested) {
-            $childTarget = Join-Path $dir ('nested-' + [string]$nested.IndexOf($child))
+          $nested = @(Get-ChildItem $target -Recurse -File | Where-Object { $_.Extension -in @('.7z','.zip') -and $_.Length -lt 1000000000 } | Select-Object -First 5)
+          for ($i=0; $i -lt $nested.Count; $i++) {
+            $child = $nested[$i]
+            $childTarget = Join-Path $dir ('nested-' + [string]$i)
             New-Item -ItemType Directory -Path $childTarget -Force | Out-Null
             & $seven x $child.FullName "-o$childTarget" -y *> (Join-Path $dir ('nested-' + $child.BaseName + '.log'))
             Write-Output "NESTED_ARCHIVE=$($child.Name) EXIT=$LASTEXITCODE"
@@ -67,8 +70,9 @@ jobs:
           npm install --prefix $packageDir --no-audit --no-fund --ignore-scripts '@electron/asar'
           if ($LASTEXITCODE -ne 0) { throw 'Asar tool installation failed' }
           $asarBin = Join-Path $packageDir 'node_modules\.bin\asar.cmd'
-          foreach ($archive in $asars) {
-            $destination = Join-Path $dir ('asar-extracted-' + [string]$asars.IndexOf($archive))
+          for ($i=0; $i -lt $asars.Count; $i++) {
+            $archive = $asars[$i]
+            $destination = Join-Path $dir ('asar-extracted-' + [string]$i)
             New-Item -ItemType Directory -Path $destination -Force | Out-Null
             & $asarBin extract $archive.FullName $destination
             Write-Output "ASAR_EXTRACT=$($archive.Name) EXIT=$LASTEXITCODE"
