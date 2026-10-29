@@ -344,16 +344,28 @@ async function main(): Promise<void> {
   let startup: Promise<void> | undefined
   let workspaceRecovery: Promise<void> | undefined
   let mainWindow: BrowserWindow | undefined
-  // Only explicit physical AI-key holds may forward live PCM into the trusted renderer.
-  // This avoids exposing any background microphone audio before/after a button press.
-  const capturingMice = new Set<string>()
+  // SDK speech/down and speech/up open the device's microphone on supported
+  // firmware. The AI key focuses DSH and may also carry PCM on some devices.
+  // Gate PCM to an explicitly held physical speech/AI key, never idle audio.
+  const capturingMice = new Map<string, Set<'speech' | 'ai'>>()
   const mouseBridge = new MouseBridge(
     join(process.resourcesPath, 'umouse-sdk'), app.getPath('logs'),
     (data) => {
-      if (data.kind === 'message' && data.event.type === 'keyEvent' && data.event.key === 'ai') {
-        if (data.event.action === 'down') capturingMice.add(data.deviceId)
-        if (data.event.action === 'up') capturingMice.delete(data.deviceId)
-        if (data.event.action === 'click' || data.event.action === 'down') focusPrimaryWindow()
+      if (data.kind === 'message' && data.event.type === 'keyEvent'
+        && (data.event.key === 'speech' || data.event.key === 'ai')) {
+        const key = data.event.key
+        if (data.event.action === 'down') {
+          const keys = capturingMice.get(data.deviceId) ?? new Set<'speech' | 'ai'>()
+          keys.add(key)
+          capturingMice.set(data.deviceId, keys)
+          focusPrimaryWindow()
+        }
+        if (data.event.action === 'up') {
+          const keys = capturingMice.get(data.deviceId)
+          keys?.delete(key)
+          if (keys?.size === 0) capturingMice.delete(data.deviceId)
+        }
+        if (key === 'ai' && data.event.action === 'click') focusPrimaryWindow()
       }
       if (data.kind === 'disconnected') capturingMice.delete(data.deviceId)
       if (data.kind === 'audio' && !capturingMice.has(data.deviceId)) return
