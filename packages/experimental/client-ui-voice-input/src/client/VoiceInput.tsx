@@ -112,6 +112,10 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
   const [mouseConnected, setMouseConnected] = useState(0)
   const readiness = useSpeechReadiness(value => value), catalog = readiness.catalog
   const provider = catalog?.providers.find(item => item.id === catalog.selection.providerId)
+  const preparingModel = provider?.location === 'host-local'
+    && ['unprepared', 'checking', 'downloading', 'loading', 'cancelling'].includes(provider.preparation.phase)
+  const preparationProgress = provider?.preparation.phase === 'downloading' && provider.preparation.totalBytes !== undefined
+    ? ' ' + String(Math.floor(provider.preparation.completedBytes / provider.preparation.totalBytes * 100)) + '%' : ''
   const usable = readiness.connected && (provider?.preparation.phase === 'ready' || provider?.preparation.phase === 'standby'
     || provider?.preparation.phase === 'waking')
   const [phase, setPhase] = useState<Phase>('idle'), [message, setMessage] = useState(''), [pending, setPending] = useState('')
@@ -142,7 +146,9 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
       transcribing?.abort()
       transcribing = undefined
       if (!usable || !catalog) {
-        setMouseMessage('请先在 DSH 插件中准备 Voice Input 语音识别模型')
+        setMouseMessage(preparingModel ? '语音模型正在自动准备' + preparationProgress + '，准备完成后即可使用'
+          : provider?.preparation.phase === 'failed' ? '语音模型自动准备失败，请在语音输入插件设置中重试'
+            : '语音识别暂不可用，请检查语音服务状态')
         return
       }
       const input = inputRef.current
@@ -253,7 +259,7 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
       unsubscribeStatus()
     }
   }, [sessionId, inputActions, usable, locked, transcribe, catalog?.selection.providerId,
-    catalog?.maxAudioBytes, catalog?.maxDurationSeconds])
+    catalog?.maxAudioBytes, catalog?.maxDurationSeconds, preparingModel, preparationProgress, provider?.preparation.phase])
 
   const expanded = phase !== 'idle'
   useLayoutEffect(() => { onActiveChange(expanded); return () => { onActiveChange(false) } }, [expanded, onActiveChange])
@@ -333,7 +339,9 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
     }
   }
   if (!expanded) return <>
-    {mouseConnected > 0 && !mouseMessage && <span className={css.activityMessage} role="status">贸号鼠标已连接</span>}
+    {mouseConnected > 0 && !mouseMessage && <span className={css.activityMessage} role="status">
+      {preparingModel ? '贸号鼠标已连接 · 语音模型正在自动准备' + preparationProgress : '贸号鼠标已连接'}
+    </span>}
     {mouseMessage && <span className={css.activityMessage} role="status">{mouseMessage}</span>}
     <Tooltip label={t('dictate')} disabled={!usable} side="top" portal>
       <span className={css.triggerAnchor}><Button className={css.trigger} size="sm" disabled={locked}
