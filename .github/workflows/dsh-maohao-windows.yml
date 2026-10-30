@@ -40,7 +40,7 @@ jobs:
       - name: Build DSH through the repository dependency graph
         run: pnpm run build
       - name: Test default voice enablement and first-run model loading
-        run: pnpm exec vitest run packages/experimental/client-ui-voice-input/tests/startup-model-modal.client.spec.tsx packages/experimental/client-ui-voice-input/tests/mount.client.spec.ts apps/desktop/tests/project-manager.spec.ts
+        run: pnpm exec vitest run packages/experimental/client-ui-voice-input/tests/startup-model-modal.client.spec.tsx packages/experimental/client-ui-voice-input/tests/mount.client.spec.ts packages/client/ui-conversation/tests/maohao-voice-hint.client.spec.tsx apps/desktop/tests/project-manager.spec.ts
       - name: Prepare evaluation-only packaging settings
         shell: pwsh
         run: |
