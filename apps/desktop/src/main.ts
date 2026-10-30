@@ -836,6 +836,12 @@ async function main(): Promise<void> {
     assertProductSender(event)
     return readDeviceInfo()
   })
+  // The sandboxed preload cannot read files to identify the evaluation edition.
+  // Reply from the trusted main process; no filesystem access or device ID crosses the IPC boundary.
+  ipcMain.on(DESKTOP_IPC.mouseEdition, (event) => {
+    event.returnValue = evaluationMouse && event.sender === mainWindow?.webContents
+      && event.senderFrame === mainWindow?.webContents.mainFrame
+  })
   ipcMain.handle(DESKTOP_IPC.mouseStatus, (event) => {
     assertProductSender(event)
     return mouseBridge.snapshot()
