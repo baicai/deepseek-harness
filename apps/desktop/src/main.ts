@@ -3,6 +3,7 @@ import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
 /** Electron shell: desktop project ownership, custom protocol, windows, and lifecycle. */
 
 import { readFile, writeFile } from 'node:fs/promises'
+import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -62,6 +63,9 @@ import { DesktopQuitConfirmation } from './quit-confirmation.ts'
 import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
 import { MouseBridge } from './umouse-bridge.ts'
+import { MaohaoAgentClient } from './maohao-agent-client.ts'
+import { runMaohaoMouseAgent } from './maohao-mouse-agent.ts'
+import { MAOHAO_AGENT_FLAG } from './maohao-agent-ipc.ts'
 
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => {}
@@ -81,8 +85,16 @@ let backendReady = false
 /** Error-level console output of the primary window, attached to crash reports. */
 const rendererConsole = new RendererConsoleTail()
 
+// Give the SDK agent its own Electron single-instance lock and profile.
+// Never let the headless agent compete with the normal DSH window's lock.
+const maohaoAgentMode = process.platform === 'win32' && app.isPackaged && process.argv.includes(MAOHAO_AGENT_FLAG)
+const maohaoMainUserData = app.getPath('userData')
+if (maohaoAgentMode) {
+  const agentProfile = join(app.getPath('appData'), app.getName() + '-mouse-agent')
+  mkdirSync(agentProfile, { recursive: true })
+  app.setPath('userData', agentProfile)
+}
 // Platform-conventional logs directory (macOS ~/Library/Logs/<name>, otherwise under userData);
-// set before ready so the first fatal report already resolves under it.
 app.setAppLogsPath()
 
 function currentDesktopLocale(): ReturnType<typeof resolveDesktopLocale> {
@@ -348,8 +360,18 @@ async function main(): Promise<void> {
   // firmware. The AI key focuses DSH and may also carry PCM on some devices.
   // Gate PCM to an explicitly held physical speech/AI key, never idle audio.
   const capturingMice = new Map<string, Set<'speech' | 'ai'>>()
-  const mouseBridge = new MouseBridge(
-    join(process.resourcesPath, 'umouse-sdk'), app.getPath('logs'),
+  const evaluationMouse = process.platform === 'win32' && app.isPackaged
+    && existsSync(join(process.resourcesPath, 'umouse-sdk', 'umouse-bridge.exe'))
+  if (evaluationMouse) {
+    // Register only the headless agent at Windows login, not the full GUI.
+    // The user can disable this entry in Windows Startup Apps.
+    try {
+      app.setLoginItemSettings({ openAtLogin: true, path: process.execPath,
+        args: [MAOHAO_AGENT_FLAG], name: 'DSH-maohao Mouse Agent' })
+    } catch (error) { console.warn('maohao agent: could not register login start', error) }
+  }
+  const mouseBridge = evaluationMouse ? new MaohaoAgentClient(maohaoMainUserData,
+
     (data) => {
       if (data.kind === 'message' && data.event.type === 'keyEvent'
         && (data.event.key === 'speech' || data.event.key === 'ai')) {
@@ -374,7 +396,8 @@ async function main(): Promise<void> {
     (state) => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(DESKTOP_IPC.mouseStatusChanged, state)
     },
-  )
+  ) : new MouseBridge(join(process.resourcesPath, 'umouse-sdk'), app.getPath('logs'),
+    () => {}, () => {})
   if (process.platform === 'win32') mouseBridge.start(true)
   app.on('will-quit', () => { mouseBridge.stop() })
   let welcomeWindow: BrowserWindow | undefined
@@ -1378,9 +1401,16 @@ async function main(): Promise<void> {
   publishUpdate(updateState)
 }
 
-const ownsDesktopInstance = claimDesktopSingleInstance(app, () => { focusPrimaryWindow() })
+const ownsDesktopInstance = claimDesktopSingleInstance(app, () => { if (!maohaoAgentMode) focusPrimaryWindow() })
 
-if (ownsDesktopInstance) void app.whenReady().then(main).catch(async (error: unknown) => {
+if (maohaoAgentMode && ownsDesktopInstance) {
+  void app.whenReady().then(() => runMaohaoMouseAgent(maohaoMainUserData)).catch((error: unknown) => {
+    console.error('maohao mouse agent: startup failed', error instanceof Error ? error.message : String(error))
+    app.exit(1)
+  })
+}
+
+if (!maohaoAgentMode && ownsDesktopInstance) void app.whenReady().then(main).catch(async (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error)
   console.error(error)
   const diagnosticFile = process.env.DSH_DESKTOP_DIAGNOSTIC_FILE
