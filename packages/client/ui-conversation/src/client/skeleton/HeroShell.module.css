@@ -59,16 +59,6 @@
   min-width: 0;
 }
 
-/* Mouse voice guidance belongs to the welcome screen, not the editor draft.
-   It wraps naturally on narrow desktop windows and follows theme tokens. */
-.maohaoVoiceHint {
-  margin: 0;
-  text-align: center;
-  font-size: 13px;
-  line-height: 21px;
-  color: var(--dsw-alias-label-secondary);
-}
-
 .previewBadge {
   align-self: flex-start;
   margin-top: 2px;
