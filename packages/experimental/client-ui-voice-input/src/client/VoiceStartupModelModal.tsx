@@ -53,7 +53,8 @@ export function VoiceStartupModelModal({ useSpeechReadiness, prepare, t }: Props
     : state.phase === 'checking' ? t('preparation.checking')
       : state.phase === 'loading' ? t('preparation.loading', { name: provider.name })
         : state.phase === 'failed' ? t('preparationFailed', { message: state.message })
-          : t('modelStartup.checking')
+          : state.phase === 'cancelled' ? t('preparation.cancelled')
+            : t('modelStartup.checking')
 
   return <Modal open title={t('modelStartup.title')} headless onClose={() => { /* Model setup stays visible until ready or explicit defer on failure. */ }}>
     <section className={css.modelStartup} aria-live="polite">
@@ -65,7 +66,7 @@ export function VoiceStartupModelModal({ useSpeechReadiness, prepare, t }: Props
       {downloading && <progress className={css.modelStartupProgress}
         aria-label={t('downloadProgress')}
         {...percent === undefined ? {} : { value: percent, max: 100 }} />}
-      {state.phase === 'failed' && <div className={css.modelStartupActions}>
+      {!busy && <div className={css.modelStartupActions}>
         <Button variant="ghost" onClick={() => { setDismissed(true) }}>{t('modelStartup.later')}</Button>
         <Button variant="primary" disabled={retrying} onClick={() => {
           setRetrying(true)
