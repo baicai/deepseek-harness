@@ -14,6 +14,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import { observeReadiness } from './readiness.ts'
 import { VoicePreparation } from './PreparationCard.tsx'
 import { VoiceSetupPrompt } from './VoiceSetupPrompt.tsx'
+import { VoiceStartupModelModal } from './VoiceStartupModelModal.tsx'
 
 export const inject = ['remote', 'slots', 'locale', 'pluginNavigation']
 
@@ -22,6 +23,29 @@ function registerUi(ctx: Context): void {
   const recordings = new Set<Recording>()
   const microphone = createMicrophoneDeviceStore()
   const readiness = observeReadiness(ctx)
+  // Start preparing the selected local ASR model as soon as the voice plugin is
+  // available. Do not make the user find the Settings download button on first use.
+  // Cloud providers and already-ready local models never download anything.
+  // A failed automatic attempt stays visible in the existing preparation UI; manual
+  // retry and source selection are still available without endless download loops.
+  const autoAttempted = new Set<string>()
+  const prepareSelectedLocalModel = (): void => {
+    const snapshot = readiness.state.getSnapshot()
+    const catalog = snapshot.catalog
+    if (!snapshot.connected || catalog === null) return
+    const selected = catalog.providers.find(provider => provider.id === catalog.selection.providerId)
+    if (selected === undefined || selected.location !== 'host-local'
+      || selected.preparation.phase !== 'unprepared' || autoAttempted.has(selected.id)) return
+    autoAttempted.add(selected.id)
+    void ctx.remote.speech.prepare(selected.id).then((result) => {
+      if (!result.ok) console.warn('voice input: automatic local model preparation failed', result.error.message)
+    }).catch((error: unknown) => {
+      console.warn('voice input: automatic local model preparation unavailable', error instanceof Error ? error.message : String(error))
+    })
+  }
+  const unsubscribeAutoPreparation = readiness.state.subscribe(prepareSelectedLocalModel)
+  ctx.effect(() => unsubscribeAutoPreparation)
+  prepareSelectedLocalModel()
   ctx.effect(() => readiness.dispose)
   ctx.effect(() => async () => { await Promise.all([...recordings].map(recording => recording.dispose())) })
   const actions: VoiceInputInjected = {
@@ -42,6 +66,11 @@ function registerUi(ctx: Context): void {
       const result = await ctx.remote.speech.cancelPreparation(providerId); if (!result.ok) throw result.error
     },
   }
+  // Global first-run prompt: visible before any conversation has been opened.
+  // The component only renders inside the trusted Maohao Windows desktop.
+  ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+    name: 'shell.overlay', id: 'maohao.voice-model-startup', locale: NS, inject: () => actions,
+  }, VoiceStartupModelModal))
   ctx.slots.inject('conversation.input.activity', () => ctx.slots.register({
     name: 'conversation.input.activity', locale: NS, inject: () => actions,
   }, VoiceInput))

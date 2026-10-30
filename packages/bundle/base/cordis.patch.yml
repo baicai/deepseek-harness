@@ -134,6 +134,29 @@
     # document.
     - id: llm-pi-ai
       name: '@deepseek-ai/dsh-llm-pi-ai'
+    # DSH-maohao Windows evaluation: mount the existing Voice Input and local ASR stack
+    # by default so the physical AI button never silently depends on an unenabled plugin.
+    # The ASR model still requires explicit local preparation; no silent downloads.
+    - id: speech-to-text
+      name: '@deepseek-ai/dsh-experimental-speech-to-text'
+      disabled: !!js "ctx.get('profileContext')?.name !== 'desktop' || process.platform !== 'win32'"
+      config:
+        defaultProvider: sensevoice-local
+
+    - id: speech-to-text-sensevoice
+      name: '@deepseek-ai/dsh-experimental-speech-to-text-sensevoice'
+      disabled: !!js "ctx.get('profileContext')?.name !== 'desktop' || process.platform !== 'win32'"
+      config:
+        dataRoot: !!js dshHomePath('speech-to-text', 'sensevoice')
+
+    - id: api-speech-to-text
+      name: '@deepseek-ai/dsh-experimental-api-speech-to-text'
+      disabled: !!js "ctx.get('profileContext')?.name !== 'desktop' || process.platform !== 'win32'"
+
+    - id: ui-voice-input
+      name: '@deepseek-ai/dsh-experimental-client-ui-voice-input'
+      disabled: !!js "ctx.get('profileContext')?.name !== 'desktop' || process.platform !== 'win32'"
+
 
     - id: session-persistence-jsonl
       name: '@deepseek-ai/dsh-session-persistence-jsonl'

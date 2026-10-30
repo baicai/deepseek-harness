@@ -43,6 +43,22 @@ afterEach(() => {
 })
 
 describe('desktop external plugin profile', () => {
+  it('enables voice on a fresh Maohao profile while preserving prior opt-outs', async () => {
+    const { manager } = setup()
+    const maohao = new DesktopProjectManager(manager.paths, manager.runtime, true)
+    const manifestPath = join(manager.paths.profile, 'package.json')
+    await maohao.applyRelease()
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { dsh: { profile: { bundles: string[] } } }
+    expect(manifest.dsh.profile.bundles).toContain('@deepseek-ai/dsh-experimental-voice-input-bundle')
+    // Existing user choices must never be overwritten by a later launch.
+    manifest.dsh.profile.bundles = manifest.dsh.profile.bundles.filter(name =>
+      name !== '@deepseek-ai/dsh-experimental-voice-input-bundle')
+    writeFileSync(manifestPath, JSON.stringify(manifest))
+    await maohao.applyRelease()
+    expect((JSON.parse(readFileSync(manifestPath, 'utf8')) as typeof manifest).dsh.profile.bundles)
+      .not.toContain('@deepseek-ai/dsh-experimental-voice-input-bundle')
+  })
+
   it('preserves installed packages, profile state, and the lockfile when preparing a launch', async () => {
     const { manager } = setup()
     await manager.applyRelease()
