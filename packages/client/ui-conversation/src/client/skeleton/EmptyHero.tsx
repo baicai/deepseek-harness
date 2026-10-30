@@ -155,6 +155,12 @@ export function HeroShell({ t, renderSlot, children }: HeroShellProps) {
             <span className={css.previewBadge}>{t('hero.preview')}</span>
           </span>
         </div>
+        {/* Product-specific getting-started hint, only in the native Maohao evaluation build. */}
+        {typeof window !== 'undefined'
+          && (window as Window & { dshMaohao?: boolean }).dshMaohao === true
+          && <p className={css.maohaoVoiceHint}>
+            按住鼠标上的语音键开始说话，说完松手自动提交问题。
+          </p>}
         <div className={css.body}>
           {/* The composer remains mounted outside this component. */}
         </div>
