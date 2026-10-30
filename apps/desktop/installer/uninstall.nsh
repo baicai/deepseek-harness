@@ -25,6 +25,10 @@ Function un.CleanData
   ClearErrors
   StrCpy $UnTarget "$APPDATA\${PRODUCT_FILENAME}"
   Call un.RemoveData
+  ; Electron gives the headless SDK agent a separate per-user profile and
+  ; single-instance lock. It must not survive a full product uninstall.
+  StrCpy $UnTarget "$APPDATA\${PRODUCT_FILENAME}-mouse-agent"
+  Call un.RemoveData
   !ifdef APP_PACKAGE_NAME
     ; Electron derives user data from the package name; a scoped name nests it one directory deeper.
     StrCpy $UnTarget "$APPDATA\${APP_PACKAGE_NAME}"
