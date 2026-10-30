@@ -43,7 +43,7 @@ function registerUi(ctx: Context): void {
     })
   }
   const unsubscribeAutoPreparation = readiness.state.subscribe(prepareSelectedLocalModel)
-  ctx.effect(() => { unsubscribeAutoPreparation() })
+  ctx.effect(() => unsubscribeAutoPreparation)
   prepareSelectedLocalModel()
   ctx.effect(() => readiness.dispose)
   ctx.effect(() => async () => { await Promise.all([...recordings].map(recording => recording.dispose())) })
