@@ -345,11 +345,12 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
     {mouseMessage && <span className={css.activityMessage} role="status">{mouseMessage}</span>}
     <Tooltip label={t('dictate')} disabled={!usable} side="top" portal>
       <span className={css.triggerAnchor}><Button className={css.trigger} size="sm" disabled={locked}
-        aria-label={t(usable ? 'start' : 'setupPrompt.trigger')} aria-haspopup={usable ? undefined : 'dialog'}
+        aria-label={preparingModel ? '语音模型正在自动准备' : t(usable ? 'start' : 'setupPrompt.trigger')}
+        aria-haspopup={usable || preparingModel ? undefined : 'dialog'}
         onMouseDown={(event) => { event.preventDefault() }}
-        onClick={() => { if (usable) void start(); else setSetupOpen(true) }}><IconMicrophoneOutlineRegular size={18} /></Button></span>
+        onClick={() => { if (usable) void start(); else if (!preparingModel) setSetupOpen(true) }}><IconMicrophoneOutlineRegular size={18} /></Button></span>
     </Tooltip>
-    <VoiceSetupDialog open={setupOpen && !usable}
+    <VoiceSetupDialog open={setupOpen && !usable && !preparingModel}
       needsInstallation={readiness.connected && provider?.location === 'host-local' && provider.preparation.phase === 'unprepared'}
       onDismiss={() => { setSetupOpen(false) }} onOpenDetails={() => { setSetupOpen(false); openSettings() }} t={t} />
   </>
