@@ -98,7 +98,7 @@ if (location.protocol === `${SCHEME}:` && location.hostname === 'app') {
   // Explicit product marker: the shared browser UI must not display mouse
   // instructions in ordinary DSH or non-Maohao Desktop installations.
   if (process.platform === 'win32' && process.isMainFrame
-    && existsSync(join(process.resourcesPath, 'umouse-sdk', 'umouse-bridge.exe'))) {
+    && ipcRenderer.sendSync(DESKTOP_IPC.mouseEdition) === true) {
     contextBridge.exposeInMainWorld('dshMaohao', true)
   }
   contextBridge.exposeInMainWorld('dshDesktopBoot', {
