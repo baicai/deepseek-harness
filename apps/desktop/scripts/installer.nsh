@@ -169,6 +169,17 @@ ManifestDPIAware true
     InitPluginsDir
     File "/oname=$PLUGINSDIR\window-frame.dll" "${INSTALLER_BUILD_DIR}\window-frame.dll"
   !endif
+  ; The Maohao mouse agent runs the SAME installed EXE as the GUI, but outlives
+  ; the GUI. Stop only that agent before the existing exact-image-path check;
+  ; never terminate a DSH main window or its active tasks during install.
+  ; On uninstall, also remove the matching login-start entry.
+  InitPluginsDir
+  File "/oname=$PLUGINSDIR\stop-maohao-agent.ps1" "${INSTALLER_SOURCE_DIR}\stop-maohao-agent.ps1"
+  !ifdef BUILD_UNINSTALLER
+    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\stop-maohao-agent.ps1" -ExecutablePath "$INSTDIR\${APP_EXECUTABLE_FILENAME}" -Uninstall'
+  !else
+    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\stop-maohao-agent.ps1" -ExecutablePath "$INSTDIR\${APP_EXECUTABLE_FILENAME}"'
+  !endif
   System::Call '$PLUGINSDIR\window-frame.dll::InstallerFindProcess(w "$INSTDIR\${APP_EXECUTABLE_FILENAME}") i.R0 ?c'
   ${If} $R0 == 0
     ${If} ${isUpdated}
