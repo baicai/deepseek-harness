@@ -251,6 +251,12 @@ ManifestDPIAware true
   !insertmacro dshFinishDirectories
   ; Standard uninstall-entry metadata read by inventory tools; the upstream template records it only under its private key.
   WriteRegStr SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" InstallLocation "$INSTDIR"
+  ; The evaluation edition needs hardware wake even before its first GUI launch.
+  ; Ship no SDK in regular DeepSeek Harness: only the real Maohao evaluation
+  ; package has this bridge and is eligible for background registration.
+  IfFileExists "$INSTDIR\resources\umouse-sdk\umouse-bridge.exe" 0 +3
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "DSH-maohao Mouse Agent" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" --maohao-agent'
+    Exec '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" --maohao-agent'
   ${If} $0 == 1
     SetErrors
   ${Else}
