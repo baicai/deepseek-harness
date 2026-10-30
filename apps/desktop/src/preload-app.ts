@@ -2,6 +2,8 @@
 
 import type { DesktopShortcutInput, ShortcutConfigSnapshot, ShortcutSaveResult } from '@deepseek-ai/dsh-client-shortcuts/protocol'
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { DESKTOP_IPC, SCHEME, type DshDesktopProductApi, type DesktopUpdatePresentation } from './ipc.ts'
 import { PLATFORM_IPC } from './platform-ipc.ts'
 import { markDocumentPlatform, syncWindowFullscreen } from './preload-platform.ts'
@@ -95,6 +97,12 @@ if (location.protocol === `${SCHEME}:` && location.hostname === 'app') {
   contextBridge.exposeInMainWorld('__DSH_HOST_PATHS__', {
     pathFor: (file: File) => webUtils.getPathForFile(file),
   })
+  // Explicit product marker: the shared browser UI must not display mouse
+  // instructions in ordinary DSH or non-Maohao Desktop installations.
+  if (process.platform === 'win32' && process.isMainFrame
+    && existsSync(join(process.resourcesPath, 'umouse-sdk', 'umouse-bridge.exe'))) {
+    contextBridge.exposeInMainWorld('dshMaohao', true)
+  }
   contextBridge.exposeInMainWorld('dshDesktopBoot', {
     ready: () => ipcRenderer.invoke(DESKTOP_IPC.boot) as Promise<unknown>,
     failed: (message: string) => ipcRenderer.invoke(DESKTOP_IPC.bootFailed, message) as Promise<void>,
