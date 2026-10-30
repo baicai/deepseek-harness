@@ -37,6 +37,7 @@ export const DESKTOP_IPC = {
   directoryPick: 'dsh-desktop:directory-pick',
   deviceInfo: 'dsh-desktop:device-info',
   mouseStatus: 'dsh-desktop:mouse-status',
+  mouseEdition: 'dsh-desktop:mouse-edition',
   mouseStatusChanged: 'dsh-desktop:mouse-status-changed',
   mouseEvent: 'dsh-desktop:mouse-event',
   localeBootstrap: 'dsh-desktop:locale-bootstrap',
