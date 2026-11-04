@@ -31,7 +31,7 @@ function recognizeFrames(audio: Uint8Array, token: string, options: SinicloudOpt
     let previewText = ''
     let offset = 44
     let sender: ReturnType<typeof setInterval> | undefined
-    const timeout = setTimeout(() => fail('sinicloud_timeout'), 60_000)
+    const timeout = setTimeout(() => fail('sinicloud_timeout'), Math.min(180_000, 30_000 + (audio.byteLength - 44) / 32))
     const cleanup = () => {
       clearTimeout(timeout)
       if (sender) clearInterval(sender)
