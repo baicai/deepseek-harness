@@ -141,7 +141,7 @@
       name: '@deepseek-ai/dsh-experimental-speech-to-text'
       disabled: !!js "ctx.get('profileContext')?.name !== 'desktop' || process.platform !== 'win32'"
       config:
-        defaultProvider: sensevoice-local
+        defaultProvider: sinicloud-cloud
 
     - id: speech-to-text-sensevoice
       name: '@deepseek-ai/dsh-experimental-speech-to-text-sensevoice'
