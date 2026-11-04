@@ -51,7 +51,7 @@ export default class SpeechToText extends Service {
     ctx.on('loader/volatile-update', () => { this.changed() })
     // Desktop cloud ASR never initiates a local-model download or blocks client startup.
     // Missing credentials fail only when the user tries to transcribe.
-    if (process.platform === 'win32' && process.env.DSH_MAOHAO_EVALUATION === '1') {
+    if (process.platform === 'win32') {
       ctx.effect(() => this.register(createSinicloudProvider()))
     }
     ctx.effect(() => async () => {
