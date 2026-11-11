@@ -136,12 +136,13 @@
       name: '@deepseek-ai/dsh-llm-pi-ai'
     # DSH-maohao Windows evaluation: mount the existing Voice Input and local ASR stack
     # by default so the physical AI button never silently depends on an unenabled plugin.
-    # The ASR model still requires explicit local preparation; no silent downloads.
+    # Local SenseVoice is preferred. Missing models never block startup; prepare explicitly in Voice Input settings.
+    # Sonicloud cloud recognition remains selectable as an alternative.
     - id: speech-to-text
       name: '@deepseek-ai/dsh-experimental-speech-to-text'
       disabled: !!js "ctx.get('profileContext')?.name !== 'desktop' || process.platform !== 'win32'"
       config:
-        defaultProvider: sinicloud-cloud
+        defaultProvider: sensevoice-local
 
     - id: speech-to-text-sensevoice
       name: '@deepseek-ai/dsh-experimental-speech-to-text-sensevoice'
