@@ -12,7 +12,8 @@ permissions:
 
 concurrency:
   group: dsh-maohao-windows-${{ github.ref }}
-  cancel-in-progress: true
+  # Preserve installer builds when another commit is pushed during packaging.
+  cancel-in-progress: false
 
 env:
   CI: 'true'
