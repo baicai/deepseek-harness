@@ -28,8 +28,7 @@ Function un.SpeechModelsPage
   ${If} $0 == error
     Abort
   ${EndIf}
-  ${NSD_CreateLabel} 0 4u 100% 28u "卸载 DSH-maohao 时，可以一并清理 SenseVoice 离线语音模型。其他 DSH 资料不会删除。$$
-Remove the local SenseVoice speech models when uninstalling DSH-maohao. Other DSH data will be preserved."
+  ${NSD_CreateLabel} 0 4u 100% 28u "卸载时可同时清理 SenseVoice 本地模型；其余 DSH 数据保留。 / Remove SenseVoice models; retain other DSH data."
   Pop $0
   ${NSD_CreateCheckbox} 0 43u 100% 16u "删除离线语音模型（默认） / Remove offline speech models (default)"
   Pop $UnSpeechCheckbox
@@ -57,6 +56,9 @@ Function un.CleanData
   ${GetOptions} $R0 "/KEEP_APP_DATA" $R1
   ${IfNot} ${Errors}
     Return
+  ${EndIf}
+  ${If} ${Silent}
+    StrCpy $UnRemoveSpeechModels 1
   ${EndIf}
   ; This is deliberately separate from Electron data cleanup. The PowerShell
   ; helper validates the model path and refuses filesystem reparse points.
