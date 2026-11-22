@@ -4,7 +4,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
 import { createReadStream, existsSync } from 'node:fs'
-import { access, mkdir, stat } from 'node:fs/promises'
+import { mkdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { app } from 'electron'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
@@ -37,8 +37,8 @@ function wave(pcm: Buffer): Buffer {
 }
 
 export class MaohaoAgentASR {
-  private worker?: Worker
-  private starting?: Promise<Worker>
+  private worker: Worker | undefined
+  private starting: Promise<Worker> | undefined
   private idle?: ReturnType<typeof setTimeout>
   private stopped = false
   private readonly modelHome = dshHomePath('speech-to-text', 'sensevoice')
@@ -120,7 +120,7 @@ export class MaohaoAgentASR {
       const timeout = AbortSignal.timeout(120_000)
       const response = await fetch(`http://127.0.0.1:${worker.port}/transcribe?language=auto`, {
         method: 'POST', signal: timeout, headers: { authorization: `Bearer ${worker.token}`, 'content-type': 'audio/wav' },
-        body: wave(pcm),
+        body: new Uint8Array(wave(pcm)) as Uint8Array<ArrayBuffer>,
       })
       if (!response.ok) throw new Error('离线语音识别失败')
       const result = await response.json() as { text?: unknown }
