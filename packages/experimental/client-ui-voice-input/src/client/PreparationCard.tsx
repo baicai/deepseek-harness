@@ -163,6 +163,6 @@ export function VoicePreparation({ useSpeechReadiness, ...props }: Pick<InjectFa
     {!catalog && <p role="status">{props.t('loading')}</p>}
     {readiness.error && <p role="alert">{props.t('failed', { message: readiness.error })}</p>}
     <VoiceCommandManager transcribe={props.transcribe} createRecording={props.createRecording}
-      selection={catalog?.selection} maxDurationSeconds={catalog?.maxDurationSeconds} />
+      {...(catalog ? { selection: catalog.selection, maxDurationSeconds: catalog.maxDurationSeconds } : {})} />
   </div>
 }
