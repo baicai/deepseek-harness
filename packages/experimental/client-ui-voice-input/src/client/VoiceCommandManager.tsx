@@ -131,10 +131,10 @@ export function VoiceCommandManager({ transcribe, createRecording, selection, ma
           <label><input type="checkbox" checked={command.enabled} disabled={busy}
             onChange={event => { void apply(items.map(x => x.id === command.id ? { ...x, enabled: event.target.checked } : x)) }} />启用</label>
           <button type="button" onClick={() => { void edit(command) }}>编辑</button>
-          <button type="button" onClick={() => { void api.recording(command.id).then(playback).catch(setMessage) }}>试听</button>
+          <button type="button" onClick={() => { void api.recording(command.id).then(playback).catch(error => { setMessage(String(error)) }) }}>试听</button>
           <button type="button" onClick={() => {
             if (command.action === 'close-app' && !window.confirm('确定关闭目标应用窗口？')) return
-            void api.test(command.id, command.action !== 'close-app' || true).then(() => { setMessage('指令已执行') }).catch(error => { setMessage(String(error)) })
+            void api.test(command.id, true).then(() => { setMessage('指令已执行') }).catch(error => { setMessage(String(error)) })
           }}>测试</button>
           <button type="button" onClick={() => {
             if (!window.confirm('删除语音指令：' + command.name + '？')) return
