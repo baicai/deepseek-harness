@@ -22,6 +22,9 @@ function createProductApi(): DshDesktopProductApi {
         save: commands => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsSave, commands),
         handle: text => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsHandle, text),
         test: (id, confirmed) => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsTest, id, confirmed),
+        recording: id => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsRecording, id),
+        saveRecording: (id, encoded) => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsSaveRecording, id, encoded),
+        removeRecording: id => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsDeleteRecording, id),
       },
       subscribe(listener) {
         const handle = (_event: Electron.IpcRendererEvent, value: Parameters<typeof listener>[0]): void => { listener(value) }
