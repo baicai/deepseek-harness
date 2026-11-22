@@ -12,8 +12,8 @@ permissions:
 
 concurrency:
   group: dsh-maohao-windows-${{ github.ref }}
-  # Preserve installer builds when another commit is pushed during packaging.
-  cancel-in-progress: false
+  # Keep the latest complete implementation: obsolete evaluation packages must not block it.
+  cancel-in-progress: true
 
 env:
   CI: 'true'
