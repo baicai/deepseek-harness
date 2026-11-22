@@ -7,6 +7,7 @@ import { access, mkdir, readFile, rename, writeFile, rm } from 'node:fs/promises
 import { basename, dirname, extname, isAbsolute, join } from 'node:path'
 import { shell } from 'electron'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
+import { maohaoFocusOrStart } from './maohao-window-input.ts'
 
 export interface MaohaoVoiceCommand {
   readonly id: string
@@ -85,16 +86,8 @@ async function execute(command: MaohaoVoiceCommand): Promise<void> {
     return
   }
   const target = command.target
-  if (isAbsolute(target)) {
-    await access(target)
-    const error = await shell.openPath(target)
-    if (error) throw new Error('无法启动应用程序')
-    return
-  }
-  // System executable names are passed as argv, never to cmd.exe or a shell.
-  // PowerShell's Start-Process can resolve installed applications using the system PATH.
-  await windowsProcess('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
-    'Start-Process -FilePath ' + JSON.stringify(target)])
+  if (isAbsolute(target)) await access(target)
+  await maohaoFocusOrStart(target)
 }
 
 /** In-memory result is never interpreted as an Agent/LLM instruction. */
