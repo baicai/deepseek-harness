@@ -5,6 +5,7 @@ import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SpeechPreparationState, SpeechProviderId, SpeechProviderView, SpeechSelectionPatch } from '@deepseek-ai/dsh-experimental-speech-to-text/types'
 import type { VoiceInputInjected } from './VoiceInput.tsx'
 import { MicrophonePicker } from './MicrophonePicker.tsx'
+import { VoiceCommandManager } from './VoiceCommandManager.tsx'
 import { NS } from './locales.ts'
 import css from './VoiceInput.module.css'
 
@@ -130,7 +131,7 @@ export function PreparationCard({ provider, connected, prepare, cancelPreparatio
 
 /** Recognition preferences and preparation cards shared by plugin details and Settings. */
 export function VoicePreparation({ useSpeechReadiness, ...props }: Pick<InjectFace<VoiceInputInjected>,
-  'useSpeechReadiness' | 'configure' | 'prepare' | 'cancelPreparation' | 'createRecording' | 'useMicrophoneDevice' | 'selectMicrophone'> & PropsLocale<typeof NS>) {
+  'useSpeechReadiness' | 'configure' | 'prepare' | 'cancelPreparation' | 'createRecording' | 'transcribe' | 'useMicrophoneDevice' | 'selectMicrophone'> & PropsLocale<typeof NS>) {
   const readiness = useSpeechReadiness(value => value), catalog = readiness.catalog
   const [saving, setSaving] = useState(false), [error, setError] = useState('')
   const configure = async (patch: SpeechSelectionPatch): Promise<void> => {
@@ -161,5 +162,7 @@ export function VoicePreparation({ useSpeechReadiness, ...props }: Pick<InjectFa
       <PreparationCard key={provider.id} provider={provider} connected={readiness.connected} {...props} />)}
     {!catalog && <p role="status">{props.t('loading')}</p>}
     {readiness.error && <p role="alert">{props.t('failed', { message: readiness.error })}</p>}
+    <VoiceCommandManager transcribe={props.transcribe} createRecording={props.createRecording}
+      selection={catalog?.selection} maxDurationSeconds={catalog?.maxDurationSeconds} />
   </div>
 }
