@@ -45,6 +45,9 @@ type PhysicalMouseEvent =
   | { kind: 'audio'; deviceId: string; format: 'pcm_s16le'; sampleRate: 16000; data: string }
 
 interface PhysicalMouse {
+  commands: {
+    handle(text: string): Promise<{ matched: boolean; command?: string }>
+  }
   status(): Promise<{ connected: number }>
   subscribe(listener: (event: PhysicalMouseEvent) => void): () => void
   subscribeStatus(listener: (state: { connected: number }) => void): () => void
@@ -192,6 +195,14 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
           if (!outcome.ok) { setMouseMessage('语音识别失败，请重试'); return }
           const text = outcome.value.text.trim()
           if (!text) { setMouseMessage('未识别到有效语音'); return }
+          // User-configured local commands have precedence over sending text to the Agent.
+          // Exact phrase matches only; other speech follows the existing DSH workflow.
+          const commandResult = await mouse.commands.handle(text)
+          if (disposed || id !== generation || recording.abort.signal.aborted) return
+          if (commandResult.matched) {
+            setMouseMessage('已执行语音指令：' + (commandResult.command ?? text))
+            return
+          }
           const now = inputRef.current
           if (locked || now.phase !== 'plain' || now.draft.trim() !== '' || now.attachmentIds.length !== 0
             || !inputActions.insertText(text, recording.span)) {
