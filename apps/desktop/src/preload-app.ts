@@ -17,6 +17,12 @@ function createProductApi(): DshDesktopProductApi {
     deviceInfo: () => ipcRenderer.invoke(DESKTOP_IPC.deviceInfo) as Promise<string>,
     mouse: {
       status: () => ipcRenderer.invoke(DESKTOP_IPC.mouseStatus),
+      commands: {
+        list: () => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsList),
+        save: commands => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsSave, commands),
+        handle: text => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsHandle, text),
+        test: (id, confirmed) => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsTest, id, confirmed),
+      },
       subscribe(listener) {
         const handle = (_event: Electron.IpcRendererEvent, value: Parameters<typeof listener>[0]): void => { listener(value) }
         ipcRenderer.on(DESKTOP_IPC.mouseEvent, handle)
