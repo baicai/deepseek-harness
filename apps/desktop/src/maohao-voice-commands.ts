@@ -3,7 +3,7 @@
  */
 import { randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
-import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, rename, writeFile, rm } from 'node:fs/promises'
 import { basename, dirname, extname, isAbsolute, join } from 'node:path'
 import { shell } from 'electron'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
@@ -27,6 +27,11 @@ const defaults: readonly MaohaoVoiceCommand[] = [
 const safeName = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}\.exe$/i
 const normalized = (value: string): string => value.trim().toLocaleLowerCase().replace(/[。！!，,？?\s]+$/gu, '')
 const commandFile = (): string => dshHomePath('speech-to-text', 'maohao-commands.json')
+const recordingDir = (): string => dshHomePath('speech-to-text', 'maohao-command-recordings')
+const recordingPath = (id: string): string => {
+  if (!/^[\\w-]{1,100}$/.test(id)) throw new Error('Invalid voice command id')
+  return join(recordingDir(), id + '.wav')
+}
 
 function validate(commands: unknown): asserts commands is MaohaoVoiceCommand[] {
   if (!Array.isArray(commands) || commands.length > 300) throw new Error('语音指令数量不能超过300')
@@ -115,6 +120,34 @@ export class MaohaoVoiceCommands {
     } catch {
       throw new Error('无法保存本地语音指令')
     }
+  }
+  async recording(id: string): Promise<string | null> {
+    if (!(await this.list()).some(x => x.id === id)) throw new Error('指令不存在')
+    try { return (await readFile(recordingPath(id))).toString('base64') }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+      throw new Error('无法读取语音样本')
+    }
+  }
+  async saveRecording(id: string, encoded: string): Promise<void> {
+    if (!(await this.list()).some(x => x.id === id)) throw new Error('指令不存在')
+    if (typeof encoded !== 'string' || encoded.length > 2_000_000 || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded)) {
+      throw new Error('语音样本格式错误')
+    }
+    const wav = Buffer.from(encoded, 'base64')
+    if (wav.toString('base64') !== encoded || wav.length < 46 || wav.length > 1_500_000
+      || wav.toString('ascii', 0, 4) !== 'RIFF' || wav.toString('ascii', 8, 12) !== 'WAVE'
+      || wav.toString('ascii', 36, 40) !== 'data' || wav.readUInt32LE(40) !== wav.length - 44
+      || wav.readUInt32LE(24) !== 16_000 || wav.readUInt16LE(22) !== 1
+      || wav.readUInt16LE(34) !== 16) throw new Error('需要16kHz单声道PCM WAV语音样本')
+    await mkdir(recordingDir(), { recursive: true })
+    const path = recordingPath(id)
+    const temporary = path + '.' + randomUUID() + '.tmp'
+    await writeFile(temporary, wav, { mode: 0o600, flag: 'wx' })
+    await rename(temporary, path)
+  }
+  async removeRecording(id: string): Promise<void> {
+    await rm(recordingPath(id), { force: true })
   }
   async handle(text: string): Promise<{ matched: boolean; command?: string }> {
     if (typeof text !== 'string' || text.length > 500) return { matched: false }
