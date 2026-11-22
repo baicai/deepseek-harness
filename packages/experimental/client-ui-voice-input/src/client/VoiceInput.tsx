@@ -144,7 +144,7 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
       transcribing = undefined
       if (!disposed) setMouseMessage(message)
     }
-    const start = (deviceId: string, key: 'speech' | 'ai'): void => {
+    const start = (deviceId: string, key: 'speech' | 'ai', hardwareAt?: number): void => {
       if (active) return
       transcribing?.abort()
       transcribing = undefined
@@ -164,7 +164,10 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
       const timeout = setTimeout(() => {
         if (id === generation) reset('鼠标语音录制已达到时长限制')
       }, maxDurationSeconds * 1000)
-      active = { id: deviceId, key, at: Date.now(), span: inputActions.captureInsertion(),
+      const startedAt = hardwareAt !== undefined && Number.isSafeInteger(hardwareAt)
+        && hardwareAt <= Date.now() && hardwareAt >= Date.now() - maxDurationSeconds * 1000
+        ? hardwareAt : Date.now()
+      active = { id: deviceId, key, at: startedAt, span: inputActions.captureInsertion(),
         abort: new AbortController(), chunks: [], bytes: 0, timeout }
       setMouseMessage(`贸号鼠标正在聆听，松开${key === 'speech' ? '语音' : 'AI'}键后识别并提交`)
     }
@@ -252,7 +255,8 @@ export function VoiceInput({ sessionId, inputActions, useInput, locked, onActive
       if (event.kind !== 'message' || event.event.type !== 'keyEvent'
         || (event.event.key !== 'speech' && event.event.key !== 'ai')) return
       const key = event.event.key
-      if (event.event.action === 'down') start(event.deviceId, key)
+      if (event.event.action === 'down') start(event.deviceId, key,
+        typeof event.event.hardwareAt === 'number' ? event.event.hardwareAt : undefined)
       else if (event.event.action === 'up') finish(event.deviceId, key)
       // The AI click is separately handled by Electron to focus the existing window.
     }
