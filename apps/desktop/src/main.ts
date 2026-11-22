@@ -65,6 +65,7 @@ import { DesktopBackgroundNotice } from './background-notice.ts'
 import { MouseBridge } from './umouse-bridge.ts'
 import { MaohaoAgentClient } from './maohao-agent-client.ts'
 import { runMaohaoMouseAgent } from './maohao-mouse-agent.ts'
+import { MaohaoVoiceCommands } from './maohao-voice-commands.ts'
 import { MAOHAO_AGENT_FLAG } from './maohao-agent-ipc.ts'
 
 let focusPrimaryWindow = (): void => {}
@@ -845,6 +846,29 @@ async function main(): Promise<void> {
   ipcMain.handle(DESKTOP_IPC.mouseStatus, (event) => {
     assertProductSender(event)
     return mouseBridge.snapshot()
+  })
+  const maohaoCommands = new MaohaoVoiceCommands()
+  ipcMain.handle(DESKTOP_IPC.mouseCommandsList, (event) => {
+    assertProductSender(event)
+    if (!evaluationMouse) throw new Error('Voice commands are unavailable in this edition')
+    return maohaoCommands.list()
+  })
+  ipcMain.handle(DESKTOP_IPC.mouseCommandsSave, (event, commands: unknown) => {
+    assertProductSender(event)
+    if (!evaluationMouse) throw new Error('Voice commands are unavailable in this edition')
+    return maohaoCommands.save(commands)
+  })
+  ipcMain.handle(DESKTOP_IPC.mouseCommandsHandle, (event, text: unknown) => {
+    assertProductSender(event)
+    if (!evaluationMouse || typeof text !== 'string') throw new Error('Invalid voice command request')
+    return maohaoCommands.handle(text)
+  })
+  ipcMain.handle(DESKTOP_IPC.mouseCommandsTest, (event, id: unknown, confirmed: unknown) => {
+    assertProductSender(event)
+    if (!evaluationMouse || typeof id !== 'string' || typeof confirmed !== 'boolean') {
+      throw new Error('Invalid voice command test request')
+    }
+    return maohaoCommands.test(id, confirmed)
   })
   ipcMain.handle(DESKTOP_IPC.onboardingApiKey, async (event) => {
     assertProductSender(event)
