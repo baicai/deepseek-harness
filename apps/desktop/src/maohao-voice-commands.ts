@@ -8,15 +8,7 @@ import { basename, dirname, extname, isAbsolute, join } from 'node:path'
 import { shell } from 'electron'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import { maohaoFocusOrStart } from './maohao-window-input.ts'
-
-export interface MaohaoVoiceCommand {
-  readonly id: string
-  readonly name: string
-  readonly aliases: readonly string[]
-  readonly action: 'open-app' | 'open-url' | 'close-app'
-  readonly target: string
-  readonly enabled: boolean
-}
+import type { MaohaoVoiceCommand } from './ipc.ts'
 
 const defaults: readonly MaohaoVoiceCommand[] = [
   { id: 'calculator', name: '打开计算器', aliases: ['启动计算器', '开启计算器'], action: 'open-app', target: 'calc.exe', enabled: true },
