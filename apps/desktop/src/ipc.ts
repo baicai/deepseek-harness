@@ -45,6 +45,9 @@ export const DESKTOP_IPC = {
   mouseCommandsSave: 'dsh-desktop:mouse-commands-save',
   mouseCommandsHandle: 'dsh-desktop:mouse-commands-handle',
   mouseCommandsTest: 'dsh-desktop:mouse-commands-test',
+  mouseCommandsRecording: 'dsh-desktop:mouse-commands-recording',
+  mouseCommandsSaveRecording: 'dsh-desktop:mouse-commands-save-recording',
+  mouseCommandsDeleteRecording: 'dsh-desktop:mouse-commands-delete-recording',
   localeBootstrap: 'dsh-desktop:locale-bootstrap',
   localeChanged: 'dsh-desktop:locale-changed',
   updatesStatus: 'dsh-desktop:updates-status',
@@ -110,6 +113,9 @@ export interface DshDesktopProductApi {
       save(commands: readonly MaohaoVoiceCommand[]): Promise<void>
       handle(text: string): Promise<{ matched: boolean; command?: string }>
       test(id: string, confirmed: boolean): Promise<void>
+      recording(id: string): Promise<string | null>
+      saveRecording(id: string, wavBase64: string): Promise<void>
+      removeRecording(id: string): Promise<void>
     }
     subscribe(listener: (event: MouseBridgeEvent) => void): () => void
     subscribeStatus(listener: (status: MouseBridgeStatus) => void): () => void
