@@ -131,7 +131,8 @@ export function PreparationCard({ provider, connected, prepare, cancelPreparatio
 
 /** Recognition preferences and preparation cards shared by plugin details and Settings. */
 export function VoicePreparation({ useSpeechReadiness, ...props }: Pick<InjectFace<VoiceInputInjected>,
-  'useSpeechReadiness' | 'configure' | 'prepare' | 'cancelPreparation' | 'createRecording' | 'transcribe' | 'useMicrophoneDevice' | 'selectMicrophone'> & PropsLocale<typeof NS>) {
+  'useSpeechReadiness' | 'configure' | 'prepare' | 'cancelPreparation' | 'createRecording' | 'useMicrophoneDevice' | 'selectMicrophone'> & PropsLocale<typeof NS>
+  & Partial<Pick<VoiceInputInjected, 'transcribe'>>) {
   const readiness = useSpeechReadiness(value => value), catalog = readiness.catalog
   const [saving, setSaving] = useState(false), [error, setError] = useState('')
   const configure = async (patch: SpeechSelectionPatch): Promise<void> => {
@@ -162,7 +163,7 @@ export function VoicePreparation({ useSpeechReadiness, ...props }: Pick<InjectFa
       <PreparationCard key={provider.id} provider={provider} connected={readiness.connected} {...props} />)}
     {!catalog && <p role="status">{props.t('loading')}</p>}
     {readiness.error && <p role="alert">{props.t('failed', { message: readiness.error })}</p>}
-    <VoiceCommandManager transcribe={props.transcribe} createRecording={props.createRecording}
-      {...(catalog ? { selection: catalog.selection, maxDurationSeconds: catalog.maxDurationSeconds } : {})} />
+    {props.transcribe && <VoiceCommandManager transcribe={props.transcribe} createRecording={props.createRecording}
+      {...(catalog ? { selection: catalog.selection, maxDurationSeconds: catalog.maxDurationSeconds } : {})} />}
   </div>
 }
