@@ -84,7 +84,7 @@ export class MaohaoAgentASR {
           if (end < 0) return
           try {
             const packet = JSON.parse(header.slice(0, end)) as { port?: unknown }
-            if (!Number.isInteger(packet.port) || Number(packet.port) < 1 || Number(packet.port) > 65535) throw new Error()
+            if (typeof packet.port !== 'number' || !Number.isInteger(packet.port) || packet.port < 1 || packet.port > 65535) throw new Error()
             finish(undefined, Number(packet.port))
           } catch { finish(new Error('离线语音服务启动失败')) }
         }
