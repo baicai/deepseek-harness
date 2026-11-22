@@ -4,13 +4,13 @@
 param()
 $ErrorActionPreference = 'Stop'
 try {
-  $home = if ([string]::IsNullOrWhiteSpace($env:DSH_HOME)) {
+  $modelHome = if ([string]::IsNullOrWhiteSpace($env:DSH_HOME)) {
     Join-Path $env:USERPROFILE '.dsh'
   } else {
     [Environment]::ExpandEnvironmentVariables($env:DSH_HOME)
   }
-  if (-not [IO.Path]::IsPathRooted($home)) { throw 'DSH_HOME must be an absolute path' }
-  $root = [IO.Path]::GetFullPath($home).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+  if (-not [IO.Path]::IsPathRooted($modelHome)) { throw 'DSH_HOME must be an absolute path' }
+  $root = [IO.Path]::GetFullPath($modelHome).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
   if ([string]::IsNullOrWhiteSpace($root) -or
       [string]::Equals($root, [IO.Path]::GetPathRoot($root).TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)) {
     throw 'Refusing filesystem root'
