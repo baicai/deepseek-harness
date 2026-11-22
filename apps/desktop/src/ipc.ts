@@ -2,7 +2,6 @@
 
 import type { DesktopKeyboardApi, DesktopShortcutsApi } from '@deepseek-ai/dsh-client-shortcuts/protocol'
 import type { IpcMainInvokeEvent } from 'electron'
-import type { MaohaoVoiceCommand } from './maohao-voice-commands.ts'
 import type { DesktopBrowserBridge } from '@deepseek-ai/dsh-client-ui-sidebar-browser/types'
 
 /** Hardware events are delivered only to the application top frame. */
@@ -11,6 +10,15 @@ export type MouseBridgeEvent =
   | { kind: 'connected' | 'disconnected'; deviceId: string; mode: 0 | 1 }
   | { kind: 'message'; deviceId: string; event: Record<string, unknown> }
   | { kind: 'audio'; deviceId: string; format: 'pcm_s16le'; sampleRate: 16000; data: string }
+
+export interface MaohaoVoiceCommand {
+  readonly id: string
+  readonly name: string
+  readonly aliases: readonly string[]
+  readonly action: 'open-app' | 'open-url' | 'close-app'
+  readonly target: string
+  readonly enabled: boolean
+}
 
 export interface MouseBridgeStatus {
   readonly phase: 'unavailable' | 'starting' | 'ready' | 'error' | 'stopped'
