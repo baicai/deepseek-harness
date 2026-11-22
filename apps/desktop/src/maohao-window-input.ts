@@ -26,6 +26,8 @@ public static class MaohaoNative {
   [StructLayout(LayoutKind.Sequential)]
   public struct HARDWAREINPUT { public uint msg; public ushort low,high; }
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd, int mode);
   [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
   [DllImport("user32.dll", SetLastError=true)]
   private static extern uint SendInput(uint count, INPUT[] inputs, int size);
@@ -79,4 +81,37 @@ export async function maohaoInsertAtFocus(text: string, hwnd: string): Promise<v
     } else { throw 'Input focus changed or SendInput rejected the text' }
   `, { DSH_MAOHAO_INPUT_TEXT: text, DSH_MAOHAO_EXPECTED_WINDOW: hwnd })
   if (success !== 'ok') throw new Error('Input focus changed or Windows rejected text')
+}
+
+/** Focus an existing visible application window, otherwise start the configured EXE or shortcut. */
+export async function maohaoFocusOrStart(target: string): Promise<void> {
+  if (!target || target.length > 1024) throw new Error('Invalid application')
+  await invoke(String.raw`
+    $target=$env:DSH_MAOHAO_APP_TARGET
+    $name=[IO.Path]::GetFileNameWithoutExtension($target)
+    $existing=Get-Process -Name $name -ErrorAction SilentlyContinue
+    foreach ($item in $existing) {
+      if ($item.MainWindowHandle -eq [IntPtr]::Zero) { continue }
+      [void][MaohaoNative]::ShowWindow($item.MainWindowHandle, 9)
+      if ([MaohaoNative]::SetForegroundWindow($item.MainWindowHandle)) {
+        [Console]::Out.Write('ok'); exit 0
+      }
+    }
+    if ($target -ieq 'WeChat.exe' -or $target -ieq 'Weixin.exe') {
+      $candidates=@(
+        (Join-Path $env:LOCALAPPDATA 'Tencent\WeChat\WeChat.exe'),
+        (Join-Path $env:LOCALAPPDATA 'Tencent\Weixin\Weixin.exe'),
+        (Join-Path $env:LOCALAPPDATA 'Programs\Tencent\Weixin\Weixin.exe'),
+        (Join-Path $env:ProgramFiles 'Tencent\WeChat\WeChat.exe'),
+        (Join-Path $env:ProgramFiles 'Tencent\Weixin\Weixin.exe')
+      )
+      foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { $target=$candidate; break }
+      }
+    }
+    Start-Process -FilePath $target
+    [Console]::Out.Write('ok')
+  `, { DSH_MAOHAO_APP_TARGET: target }).then(result => {
+    if (result !== 'ok') throw new Error('Could not start application')
+  })
 }
