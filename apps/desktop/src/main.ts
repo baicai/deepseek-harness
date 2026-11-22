@@ -870,6 +870,23 @@ async function main(): Promise<void> {
     }
     return maohaoCommands.test(id, confirmed)
   })
+  ipcMain.handle(DESKTOP_IPC.mouseCommandsRecording, (event, id: unknown) => {
+    assertProductSender(event)
+    if (!evaluationMouse || typeof id !== 'string') throw new Error('Invalid voice sample request')
+    return maohaoCommands.recording(id)
+  })
+  ipcMain.handle(DESKTOP_IPC.mouseCommandsSaveRecording, (event, id: unknown, wavBase64: unknown) => {
+    assertProductSender(event)
+    if (!evaluationMouse || typeof id !== 'string' || typeof wavBase64 !== 'string') {
+      throw new Error('Invalid voice sample upload')
+    }
+    return maohaoCommands.saveRecording(id, wavBase64)
+  })
+  ipcMain.handle(DESKTOP_IPC.mouseCommandsDeleteRecording, (event, id: unknown) => {
+    assertProductSender(event)
+    if (!evaluationMouse || typeof id !== 'string') throw new Error('Invalid voice sample removal')
+    return maohaoCommands.removeRecording(id)
+  })
   ipcMain.handle(DESKTOP_IPC.onboardingApiKey, async (event) => {
     assertProductSender(event)
     return (await readWelcomeState()).hasApiKey
