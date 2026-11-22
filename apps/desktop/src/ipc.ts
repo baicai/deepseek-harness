@@ -2,6 +2,7 @@
 
 import type { DesktopKeyboardApi, DesktopShortcutsApi } from '@deepseek-ai/dsh-client-shortcuts/protocol'
 import type { IpcMainInvokeEvent } from 'electron'
+import type { MaohaoVoiceCommand } from './maohao-voice-commands.ts'
 import type { DesktopBrowserBridge } from '@deepseek-ai/dsh-client-ui-sidebar-browser/types'
 
 /** Hardware events are delivered only to the application top frame. */
@@ -40,6 +41,10 @@ export const DESKTOP_IPC = {
   mouseEdition: 'dsh-desktop:mouse-edition',
   mouseStatusChanged: 'dsh-desktop:mouse-status-changed',
   mouseEvent: 'dsh-desktop:mouse-event',
+  mouseCommandsList: 'dsh-desktop:mouse-commands-list',
+  mouseCommandsSave: 'dsh-desktop:mouse-commands-save',
+  mouseCommandsHandle: 'dsh-desktop:mouse-commands-handle',
+  mouseCommandsTest: 'dsh-desktop:mouse-commands-test',
   localeBootstrap: 'dsh-desktop:locale-bootstrap',
   localeChanged: 'dsh-desktop:locale-changed',
   updatesStatus: 'dsh-desktop:updates-status',
@@ -100,6 +105,12 @@ export interface DshDesktopProductApi {
   /** Read-only native mouse capability. Only the physical device triggers command input. */
   readonly mouse: {
     status(): Promise<MouseBridgeStatus>
+    commands: {
+      list(): Promise<MaohaoVoiceCommand[]>
+      save(commands: readonly MaohaoVoiceCommand[]): Promise<void>
+      handle(text: string): Promise<{ matched: boolean; command?: string }>
+      test(id: string, confirmed: boolean): Promise<void>
+    }
     subscribe(listener: (event: MouseBridgeEvent) => void): () => void
     subscribeStatus(listener: (status: MouseBridgeStatus) => void): () => void
   }
