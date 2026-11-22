@@ -15,6 +15,28 @@ function createProductApi(): DshDesktopProductApi {
     protocolVersion: 1,
     browser: createDesktopBrowserBridge(),
     deviceInfo: () => ipcRenderer.invoke(DESKTOP_IPC.deviceInfo) as Promise<string>,
+    mouse: {
+      status: () => ipcRenderer.invoke(DESKTOP_IPC.mouseStatus),
+      commands: {
+        list: () => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsList),
+        save: commands => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsSave, commands),
+        handle: text => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsHandle, text),
+        test: (id, confirmed) => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsTest, id, confirmed),
+        recording: id => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsRecording, id),
+        saveRecording: (id, encoded) => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsSaveRecording, id, encoded),
+        removeRecording: id => ipcRenderer.invoke(DESKTOP_IPC.mouseCommandsDeleteRecording, id),
+      },
+      subscribe(listener) {
+        const handle = (_event: Electron.IpcRendererEvent, value: Parameters<typeof listener>[0]): void => { listener(value) }
+        ipcRenderer.on(DESKTOP_IPC.mouseEvent, handle)
+        return () => { ipcRenderer.off(DESKTOP_IPC.mouseEvent, handle) }
+      },
+      subscribeStatus(listener) {
+        const handle = (_event: Electron.IpcRendererEvent, value: Parameters<typeof listener>[0]): void => { listener(value) }
+        ipcRenderer.on(DESKTOP_IPC.mouseStatusChanged, handle)
+        return () => { ipcRenderer.off(DESKTOP_IPC.mouseStatusChanged, handle) }
+      },
+    },
     keyboard: {
       closeWindow: revision => ipcRenderer.invoke(DESKTOP_IPC.shortcutsCloseWindow, revision) as Promise<void>,
       subscribe: (listener) => {
@@ -82,6 +104,12 @@ if (location.protocol === `${SCHEME}:` && location.hostname === 'app') {
   contextBridge.exposeInMainWorld('__DSH_HOST_PATHS__', {
     pathFor: (file: File) => webUtils.getPathForFile(file),
   })
+  // Explicit product marker: the shared browser UI must not display mouse
+  // instructions in ordinary DSH or non-Maohao Desktop installations.
+  if (process.platform === 'win32' && process.isMainFrame
+    && ipcRenderer.sendSync(DESKTOP_IPC.mouseEdition) === true) {
+    contextBridge.exposeInMainWorld('dshMaohao', true)
+  }
   contextBridge.exposeInMainWorld('dshDesktopBoot', {
     ready: () => ipcRenderer.invoke(DESKTOP_IPC.boot) as Promise<unknown>,
     failed: (message: string) => ipcRenderer.invoke(DESKTOP_IPC.bootFailed, message) as Promise<void>,

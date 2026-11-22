@@ -1,6 +1,7 @@
 /** Named transcription providers with disposable registration and explicit routing. */
 import { Context, Service, type Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import { createSinicloudProvider } from './sinicloud.ts'
 // Type-only: the `settings` service that persists `configure()` into this plugin's profile entry, and the Loader's
 // entry and `loader/volatile-update` merges.
 import type {} from '@deepseek-ai/dsh-settings'
@@ -48,6 +49,11 @@ export default class SpeechToText extends Service {
     super(ctx, 'speechToText')
     this.entryId = ctx.fiber.entry?.options.id
     ctx.on('loader/volatile-update', () => { this.changed() })
+    // Desktop cloud ASR never initiates a local-model download or blocks client startup.
+    // Missing credentials fail only when the user tries to transcribe.
+    if (process.platform === 'win32') {
+      ctx.effect(() => this.register(createSinicloudProvider()))
+    }
     ctx.effect(() => async () => {
       this.lifetime.abort(new Error('Speech service disposed'))
       await Promise.all([...this.providers.values()].map(registration => this.remove(registration)))

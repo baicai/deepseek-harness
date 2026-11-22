@@ -4,6 +4,29 @@ import type { DesktopKeyboardApi, DesktopShortcutsApi } from '@deepseek-ai/dsh-c
 import type { IpcMainInvokeEvent } from 'electron'
 import type { DesktopBrowserBridge } from '@deepseek-ai/dsh-client-ui-sidebar-browser/types'
 
+/** Hardware events are delivered only to the application top frame. */
+export type MouseBridgeEvent =
+  | { kind: 'ready'; version: string }
+  | { kind: 'connected' | 'disconnected'; deviceId: string; mode: 0 | 1 }
+  | { kind: 'message'; deviceId: string; event: Record<string, unknown> }
+  | { kind: 'audio'; deviceId: string; format: 'pcm_s16le'; sampleRate: 16000; data: string }
+
+export interface MaohaoVoiceCommand {
+  readonly id: string
+  readonly name: string
+  readonly aliases: readonly string[]
+  readonly action: 'open-app' | 'open-url' | 'close-app'
+  readonly target: string
+  readonly enabled: boolean
+}
+
+export interface MouseBridgeStatus {
+  readonly phase: 'unavailable' | 'starting' | 'ready' | 'error' | 'stopped'
+  readonly version?: string
+  readonly connected: number
+  readonly devices: readonly { readonly deviceId: string; readonly mode: 0 | 1 }[]
+}
+
 /** IPC channel names kept private to the desktop application bundle. */
 export const DESKTOP_IPC = {
   shortcutsInput: 'dsh-desktop:shortcuts-input',
@@ -22,6 +45,17 @@ export const DESKTOP_IPC = {
   browserOpenRequested: 'dsh-desktop:browser-open-requested',
   directoryPick: 'dsh-desktop:directory-pick',
   deviceInfo: 'dsh-desktop:device-info',
+  mouseStatus: 'dsh-desktop:mouse-status',
+  mouseEdition: 'dsh-desktop:mouse-edition',
+  mouseStatusChanged: 'dsh-desktop:mouse-status-changed',
+  mouseEvent: 'dsh-desktop:mouse-event',
+  mouseCommandsList: 'dsh-desktop:mouse-commands-list',
+  mouseCommandsSave: 'dsh-desktop:mouse-commands-save',
+  mouseCommandsHandle: 'dsh-desktop:mouse-commands-handle',
+  mouseCommandsTest: 'dsh-desktop:mouse-commands-test',
+  mouseCommandsRecording: 'dsh-desktop:mouse-commands-recording',
+  mouseCommandsSaveRecording: 'dsh-desktop:mouse-commands-save-recording',
+  mouseCommandsDeleteRecording: 'dsh-desktop:mouse-commands-delete-recording',
   localeBootstrap: 'dsh-desktop:locale-bootstrap',
   localeChanged: 'dsh-desktop:locale-changed',
   updatesStatus: 'dsh-desktop:updates-status',
@@ -79,6 +113,21 @@ export interface DshDesktopProductApi {
    * @returns `name=value` fields separated by `; `, with no hostname, user name, or serial number.
    */
   deviceInfo(): Promise<string>
+  /** Read-only native mouse capability. Only the physical device triggers command input. */
+  readonly mouse: {
+    status(): Promise<MouseBridgeStatus>
+    commands: {
+      list(): Promise<MaohaoVoiceCommand[]>
+      save(commands: readonly MaohaoVoiceCommand[]): Promise<void>
+      handle(text: string): Promise<{ matched: boolean; command?: string }>
+      test(id: string, confirmed: boolean): Promise<void>
+      recording(id: string): Promise<string | null>
+      saveRecording(id: string, wavBase64: string): Promise<void>
+      removeRecording(id: string): Promise<void>
+    }
+    subscribe(listener: (event: MouseBridgeEvent) => void): () => void
+    subscribeStatus(listener: (status: MouseBridgeStatus) => void): () => void
+  }
   readonly updates: {
     status(): Promise<DesktopUpdatePresentation>
     open(): Promise<void>

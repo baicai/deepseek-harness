@@ -22,6 +22,8 @@ function registerUi(ctx: Context): void {
   const recordings = new Set<Recording>()
   const microphone = createMicrophoneDeviceStore()
   const readiness = observeReadiness(ctx)
+  // Offline models are optional: never download them automatically or block app startup.
+  // Users can explicitly prepare a local provider from Voice Input settings.
   ctx.effect(() => readiness.dispose)
   ctx.effect(() => async () => { await Promise.all([...recordings].map(recording => recording.dispose())) })
   const actions: VoiceInputInjected = {

@@ -30,6 +30,7 @@ const PROJECT_NAME = '@deepseek-ai/dsh-desktop-runtime'
 const DSH_PACKAGE = '@deepseek-ai/dsh'
 const CORE_BUILD_PACKAGE = '@deepseek-ai/dsh-subprocess-local'
 const WEB_PROFILE = PROFILE_TEMPLATES.web as ProfileTemplate
+const MAOHAO_VOICE_BUNDLE = '@deepseek-ai/dsh-experimental-voice-input-bundle'
 const WORKSPACE_SETTINGS = 'nodeLinker: hoisted\nautoInstallPeers: false\n'
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, undefined, 2)}\n`, { mode: 0o600 })
@@ -66,6 +67,7 @@ export class DesktopProjectManager {
   constructor(
     readonly paths: DesktopPaths,
     readonly runtime: { readonly dsh: string },
+    private readonly maohaoVoiceEnabledByDefault = false,
   ) {}
 
   /**
@@ -85,7 +87,7 @@ export class DesktopProjectManager {
       // Validation only: an unreadable or mismatched runtime descriptor stops preparation before the Host starts.
       readDesktopRuntime(this.runtime.dsh)
       migrateProfileSettings(this.paths.profile)
-      createPluginProfile(this.paths.profile)
+      createPluginProfile(this.paths.profile, this.maohaoVoiceEnabledByDefault)
       removeLinkProjections(this.paths.profile)
     })
   }
@@ -171,6 +173,11 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
 }
 
 /** Create the first external plugin profile without running a package manager. */
-export function createPluginProfile(projectDir: string): void {
-  initProfile(projectDir, WEB_PROFILE.bundles)
+export function createPluginProfile(projectDir: string, maohaoVoiceEnabledByDefault = false): void {
+  // Only the Maohao desktop edition activates voice on a fresh profile. A
+  // previously initialized profile is left intact, including user opt-outs.
+  const bundles = maohaoVoiceEnabledByDefault
+    ? [...WEB_PROFILE.bundles, MAOHAO_VOICE_BUNDLE]
+    : WEB_PROFILE.bundles
+  initProfile(projectDir, bundles)
 }

@@ -6,6 +6,11 @@ export const NS = 'voice-input'
 /** Chinese dictionary and key source. */
 export const zh = {
   dictate: '听写',
+  'modelStartup.title': '正在下载离线模型，请稍后…',
+  'modelStartup.checking': '正在检查并准备离线语音模型…',
+  'modelStartup.failed': '离线模型下载失败',
+  'modelStartup.retry': '重试下载',
+  'modelStartup.later': '暂不使用语音',
   'setupPrompt.title': '使用语音输入前需要安装',
   'setupPrompt.body': '语音输入插件已开启。首次使用需要在本机下载并准备识别模型，请前往插件详情页查看空间、内存和时间说明，再开始安装。',
   'setupPrompt.later': '稍后',
@@ -110,6 +115,11 @@ export type VoiceKey = keyof typeof zh
 /** English dictionary with the same complete key set. */
 export const en: Record<VoiceKey, string> = {
   dictate: 'Dictate',
+  'modelStartup.title': 'Downloading offline speech model, please wait…',
+  'modelStartup.checking': 'Checking and preparing the offline speech model…',
+  'modelStartup.failed': 'Offline speech model download failed',
+  'modelStartup.retry': 'Retry download',
+  'modelStartup.later': 'Continue without voice',
   'setupPrompt.title': 'Set up voice input before recording',
   'setupPrompt.body': 'Voice input is enabled. First use requires downloading and preparing local recognition models. Open the plugin details to review disk space, memory and time estimates before starting setup.',
   'setupPrompt.later': 'Later',

@@ -6,6 +6,7 @@ import { bindSnapshotSelector, makeTranslate, RemoteError } from '@deepseek-ai/d
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { InputState } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SpeechPreparationState, SpeechProviderId, Transcript } from '@deepseek-ai/dsh-experimental-speech-to-text/types'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { VoiceInput, type VoiceInputProps } from '../src/client/VoiceInput.tsx'
@@ -30,7 +31,10 @@ function fixture(recording?: Recording) {
   } })
   const transcribe = vi.fn<(request: unknown, signal: AbortSignal) => Promise<RemoteResult<Transcript>>>(
     async () => ({ ok: true, value: transcript }))
-  const props: VoiceInputProps = { sessionId: 'one' as SessionId, inputActions, transcribe, locked: false, onActiveChange: vi.fn(),
+  const useInput = bindSnapshotSelector(createSnapshotStore<InputState>({
+    draft: '', attachmentIds: [], draftRev: 1, phase: 'plain', occurrences: [], queue: [],
+  }))
+  const props: VoiceInputProps = { sessionId: 'one' as SessionId, inputActions, useInput, transcribe, locked: false, onActiveChange: vi.fn(),
     openSettings: vi.fn(), prepare: vi.fn(async () => {}), cancelPreparation: vi.fn(async () => {}), configure: vi.fn(async () => {}),
     selectMicrophone: vi.fn(), useMicrophoneDevice: bindSnapshotSelector(createSnapshotStore({ id: '', label: '' })),
     useSpeechReadiness: bindSnapshotSelector(readiness), createRecording: () => recording ?? capture,
@@ -296,40 +300,35 @@ it.each(['escape', 'hidden', 'session'])('discards pending permission after %s',
   expect(b.transcribe).not.toHaveBeenCalled()
 })
 
-it('offers installation on click without a preparation tooltip', () => {
+it.each<SpeechPreparationState>([
+  { phase: 'unprepared' },
+  { phase: 'checking', step: 'check', startedAt: 0 },
+  { phase: 'downloading', resource: 'model', completedBytes: 100, totalBytes: 400 },
+])('does not require manual setup while model is automatically preparing ($phase)', (preparation) => {
   const b = fixture(), state = b.readiness.getSnapshot()
   act(() => { b.readiness.set({ ...state, catalog: { ...state.catalog!, providers: [
-    { ...state.catalog!.providers[0]!, preparation: { phase: 'unprepared' } },
+    { ...state.catalog!.providers[0]!, preparation },
   ] } }) })
-  const mic = screen.getByRole<HTMLButtonElement>('button', { name: zh['setupPrompt.trigger'] })
+  const mic = screen.getByRole<HTMLButtonElement>('button', { name: '语音模型正在自动准备' })
   expect(mic.disabled).toBe(false)
-  expect(mic.getAttribute('aria-haspopup')).toBe('dialog')
-  fireEvent.mouseEnter(mic.parentElement!)
-  expect(screen.queryByRole('tooltip')).toBeNull()
+  expect(mic.getAttribute('aria-haspopup')).toBeNull()
   fireEvent.click(mic)
-  expect(screen.getByRole('dialog').textContent).toContain(zh['setupPrompt.body'])
-  expect(b.capture.start).not.toHaveBeenCalled()
-  expect(b.props.prepare).not.toHaveBeenCalled()
-  fireEvent.click(screen.getByRole('button', { name: zh['setupPrompt.open'] }))
-  expect(b.props.openSettings).toHaveBeenCalledOnce()
   expect(screen.queryByRole('dialog')).toBeNull()
+  expect(b.capture.start).not.toHaveBeenCalled()
+  expect(b.props.openSettings).not.toHaveBeenCalled()
 })
 
 it.each<SpeechPreparationState>([
-  { phase: 'checking', step: 'check', startedAt: 0 },
-  { phase: 'downloading', resource: 'model', completedBytes: 0 },
   { phase: 'failed', message: 'download failed' },
   { phase: 'cancelled' },
-])('guides $phase recognition to its status page without starting recording or preparation', (preparation) => {
+])('guides $phase recognition to its status page without starting recording', (preparation) => {
   const b = fixture(), state = b.readiness.getSnapshot()
   act(() => { b.readiness.set({ ...state, catalog: { ...state.catalog!, providers: [
     { ...state.catalog!.providers[0]!, preparation },
   ] } }) })
   fireEvent.click(screen.getByRole('button', { name: zh['setupPrompt.trigger'] }))
   expect(screen.getByRole('dialog').textContent).toContain(zh['setupPrompt.unavailableBody'])
-  expect(screen.queryByText(zh['setupPrompt.body'])).toBeNull()
   expect(b.capture.start).not.toHaveBeenCalled()
-  expect(b.props.prepare).not.toHaveBeenCalled()
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: zh['setupPrompt.details'] }))
   expect(b.props.openSettings).toHaveBeenCalledOnce()
 })
@@ -381,4 +380,29 @@ it.each(['later', 'escape', 'ready', 'session'])('dismisses unavailable recognit
     open()
     expect(screen.getByRole('dialog')).toBeTruthy()
   }
+})
+
+it.each(['speech', 'ai'] as const)('uses the physical %s key for push-to-talk and reports missing SDK PCM', (key) => {
+  type MouseMessage = { kind: 'message'; deviceId: string; event: { type: 'keyEvent'; key: 'speech' | 'ai'; action: 'down' | 'up' } }
+  const listeners = new Set<(event: MouseMessage) => void>()
+  const mouse = {
+    status: vi.fn(async () => ({ connected: 1 })),
+    subscribe: (listener: (event: MouseMessage) => void) => { listeners.add(listener); return () => { listeners.delete(listener) } },
+    subscribeStatus: () => () => {},
+  }
+  vi.stubGlobal('dshDesktop', { mouse })
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(1000)
+  const b = fixture()
+  const emit = (action: 'down' | 'up') => act(() => {
+    for (const listener of listeners) listener({ kind: 'message', deviceId: 'test-device', event: { type: 'keyEvent', key, action } })
+  })
+  emit('down')
+  expect(screen.getByRole('status').textContent).toContain('正在聆听')
+  expect(b.transcribe).not.toHaveBeenCalled()
+  clock.mockReturnValue(2000)
+  emit('up')
+  expect(screen.getByRole('status').textContent).toContain('未收到足够的鼠标音频')
+  expect(b.inputActions.submit).not.toHaveBeenCalled()
+  expect(b.transcribe).not.toHaveBeenCalled()
+  clock.mockRestore()
 })
