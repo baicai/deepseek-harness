@@ -99,7 +99,7 @@ export async function runMaohaoMouseAgent(mainUserData: string): Promise<void> {
           const capture: Capture = { key, started: Date.now(), focus, chunks: [], queued: [], bytes: 0,
             route: 'pending', ended: false, timer: setTimeout(() => { capturing.delete(deviceId) }, 120_000) }
           capturing.set(deviceId, capture)
-          routeEvent(capture, event)
+          routeEvent(capture, { ...event, event: { ...event.event, hardwareAt: capture.started } })
           void focus.then(window => {
             // Forward to the ordinary DSH composer only when the DSH app itself
             // had focus at key-down. Otherwise the agent owns ASR and insertion.
